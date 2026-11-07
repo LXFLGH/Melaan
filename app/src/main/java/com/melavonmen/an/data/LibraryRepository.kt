@@ -74,6 +74,7 @@ object LibraryRepository {
     suspend fun scan(treeUri: Uri): ScanReport = scan(listOf(treeUri))
 
     suspend fun scan(treeUris: List<Uri>, preserveCoverCache: Boolean = false): ScanReport {
+        if (ExhibitionData.enabled) return ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人漫画库")))
         val ctx = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
         val previousEntries = entries
@@ -149,11 +150,12 @@ object LibraryRepository {
         return ScanReport(archiveCount = uris.size, importedCount = built.size, warnings = warnings)
     }
 
-    fun comics(): List<ComicEntry> = entries.map(::withUserTags)
+    fun comics(): List<ComicEntry> = if (ExhibitionData.enabled) ExhibitionData.snapshot.comics else entries.map(::withUserTags)
 
-    fun byId(id: String): ComicEntry? = synchronized(lock) { idIndex[id]?.let(::withUserTags) }
+    fun byId(id: String): ComicEntry? = if (ExhibitionData.enabled) ExhibitionData.comic(id) else synchronized(lock) { idIndex[id]?.let(::withUserTags) }
 
     suspend fun removeComic(id: String, deleteLocalFile: Boolean): Boolean {
+        if (ExhibitionData.enabled) return false
         val context = appContext ?: return false
         val removed = synchronized(lock) {
             val entry = idIndex[id] ?: return false
@@ -180,6 +182,7 @@ object LibraryRepository {
     }
 
     fun addUserTag(id: String, tag: String): List<String> {
+        if (ExhibitionData.enabled) return ExhibitionData.comic(id)?.tags.orEmpty()
         val entry = synchronized(lock) { idIndex[id] } ?: throw EntryNotFound(id)
         val cleaned = tag.trim()
         require(cleaned.isNotEmpty()) { "Tag cannot be blank" }
@@ -191,6 +194,7 @@ object LibraryRepository {
     }
 
     fun removeUserTag(id: String, tag: String): List<String> {
+        if (ExhibitionData.enabled) return ExhibitionData.comic(id)?.tags.orEmpty()
         val entry = synchronized(lock) { idIndex[id] } ?: throw EntryNotFound(id)
         val cleaned = tag.trim()
         require(cleaned.isNotEmpty()) { "Tag cannot be blank" }
@@ -200,6 +204,7 @@ object LibraryRepository {
     }
 
     suspend fun readCover(id: String): ByteArray? {
+        if (ExhibitionData.enabled) return null
         coverFile(id)?.takeIf(File::isFile)?.let { cached ->
             runCatching { cached.readBytes() }.getOrNull()?.let { return it }
         }
@@ -216,7 +221,8 @@ object LibraryRepository {
     }
 
     suspend fun readAuthors(id: String): List<String> =
-        withReader(id) { it.parseMetadata()?.authors.orEmpty() }
+        if (ExhibitionData.enabled) ExhibitionData.comic(id)?.authors.orEmpty()
+        else withReader(id) { it.parseMetadata()?.authors.orEmpty() }
 
     fun cacheSizeBytes(): Long = runCatching {
         val coverBytes = coverDirectory()?.listFiles()?.filter(File::isFile)?.sumOf(File::length) ?: 0L
@@ -236,6 +242,8 @@ object LibraryRepository {
     }
 
     suspend fun readPage(id: String, chapterIndex: Int, pageIndex: Int): ByteArray {
+        if (ExhibitionData.enabled) return ExhibitionData.pageBytes(id, chapterIndex, pageIndex)
+            ?: throw EntryNotFound("demo page $chapterIndex/$pageIndex")
         val entry = byId(id) ?: throw EntryNotFound(id)
         val chapter = entry.chapters.getOrNull(chapterIndex)
             ?: throw IndexOutOfBoundsException("chapterIndex $chapterIndex out of range")
@@ -252,6 +260,7 @@ object LibraryRepository {
 
     /** Resolves only the selected nested chapter and updates the in-memory index. */
     fun resolveChapterForReading(id: String, chapterIndex: Int): ComicEntry {
+        if (ExhibitionData.enabled) return ExhibitionData.comic(id) ?: throw EntryNotFound(id)
         val entry = synchronized(lock) { idIndex[id] } ?: throw EntryNotFound(id)
         val chapter = entry.chapters.getOrNull(chapterIndex)
             ?: throw IndexOutOfBoundsException("chapterIndex $chapterIndex out of range")

@@ -36,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.melavonmen.an.data.LibraryRepository
+import com.melavonmen.an.data.ExhibitionData
 import com.melavonmen.an.ui.theme.MelavonmenAnTheme
 
 private const val KEY_THEME_MODE = "theme_mode"
@@ -76,6 +78,8 @@ fun MelaanApp() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) }
+    var exhibitionMode by remember { mutableStateOf(false) }
+    var meTabTapCount by remember { mutableIntStateOf(0) }
     var detailComicId by rememberSaveable { mutableStateOf<String?>(null) }
     var readerComicId by rememberSaveable { mutableStateOf<String?>(null) }
     var readerChapterIndex by rememberSaveable { mutableIntStateOf(0) }
@@ -100,6 +104,17 @@ fun MelaanApp() {
     val inReader = readerComicId != null
     val inDetail = detailComicId != null
 
+    fun selectTab(index: Int) {
+        selectedTabIndex = index
+        meTabTapCount = if (index == 3 && !exhibitionMode) meTabTapCount + 1 else if (index != 3) 0 else meTabTapCount
+        if (meTabTapCount >= 5 && !exhibitionMode) {
+            exhibitionMode = true
+            ExhibitionData.enabled = true
+            selectedTabIndex = 0
+            meTabTapCount = 0
+        }
+    }
+
     BackHandler(enabled = inReader || inDetail) {
         when {
             inReader -> readerComicId = null
@@ -119,7 +134,7 @@ fun MelaanApp() {
                     // Capture only the wallpaper; each foreground glass surface samples it once.
                     Box(Modifier.fillMaxSize().glassBackdrop(glassState)) {
                         Box(Modifier.fillMaxSize().background(canvas))
-                        wallpaper?.let {
+                        wallpaper?.takeUnless { exhibitionMode }?.let {
                             Image(
                                 bitmap = it.asImageBitmap(),
                                 contentDescription = null,
@@ -141,7 +156,7 @@ fun MelaanApp() {
                                     Tab.entries.forEachIndexed { index, tab ->
                                         val selected = index == selectedTabIndex
                                         Column(
-                                            Modifier.fillMaxWidth().height(58.dp).clickable { selectedTabIndex = index },
+                                            Modifier.fillMaxWidth().height(58.dp).clickable { selectTab(index) },
                                             horizontalAlignment = Alignment.CenterHorizontally,
                                             verticalArrangement = Arrangement.Center
                                         ) {
@@ -231,7 +246,7 @@ fun MelaanApp() {
                                 Tab.entries.forEachIndexed { index, tab ->
                                     val on = index == selectedTabIndex
                                     Column(
-                                        Modifier.weight(1f).fillMaxHeight().clickable { selectedTabIndex = index }.padding(vertical = 4.dp),
+                                        Modifier.weight(1f).fillMaxHeight().clickable { selectTab(index) }.padding(vertical = 4.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center,
                                     ) {

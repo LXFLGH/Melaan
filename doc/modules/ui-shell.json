@@ -8,6 +8,7 @@
     "app/src/main/java/com/melavonmen/an/ui/theme/Theme.kt",
     "app/src/main/java/com/melavonmen/an/ui/theme/Type.kt",
     "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/data/ExhibitionData.kt",
     "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
@@ -22,6 +23,6 @@
   "public_symbols": ["MelaanApp", "HomeScreen", "LibraryScreen", "TagsScreen", "DetailScreen", "ComicTagEditor", "SettingsScreen", "rememberCoverBitmap", "CoverImageCache", "CoverImageCache.r18CoversBlocked", "CoverImageCache.setR18CoversBlocked(Boolean)", "GlassSurface"],
   "data_structures": [{"name": "AppNavState", "fields": "tab,detailComicId,readerComicId", "source_evidence": null, "note": "计划中"}],
   "dependencies": ["data-archive", "data-tags", "androidx.compose.material3"],
-  "related_contracts": ["contracts/reading-progress.json", "contracts/navigation-switch-performance.json", "contracts/r18-cover-masking.json"],
+  "related_contracts": ["contracts/reading-progress.json", "contracts/navigation-switch-performance.json", "contracts/r18-cover-masking.json", "contracts/exhibition-mode.json"],
   "related_wiki": []
 }

@@ -2,11 +2,19 @@ package com.melavonmen.an.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.LinearGradient
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.util.LruCache
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import com.melavonmen.an.data.ExhibitionData
 import com.melavonmen.an.data.LibraryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -73,6 +81,9 @@ internal object CoverImageCache {
 @Composable
 internal fun rememberCoverBitmap(comicId: String, targetWidth: Int): Bitmap? {
     val blocked = CoverImageCache.r18CoversBlocked
+    if (comicId.startsWith("demo:")) {
+        return remember(comicId, targetWidth) { exhibitionCover(comicId, targetWidth) }
+    }
     val bitmap by produceState<Bitmap?>(
         initialValue = if (blocked) null else CoverImageCache.get(comicId, targetWidth),
         comicId,
@@ -81,6 +92,41 @@ internal fun rememberCoverBitmap(comicId: String, targetWidth: Int): Bitmap? {
     ) {
         value = if (blocked) null else CoverImageCache.load(comicId, targetWidth)
     }
+    return bitmap
+}
+
+private fun exhibitionCover(comicId: String, targetWidth: Int): Bitmap {
+    val width = targetWidth.coerceAtLeast(1)
+    val height = (width * 1.42f).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val colors = when (comicId) {
+        "demo:moonlit" -> intArrayOf(0xFF342D65.toInt(), 0xFFEB9E9C.toInt())
+        "demo:cloud" -> intArrayOf(0xFFED9A62.toInt(), 0xFFFFD792.toInt())
+        "demo:robot" -> intArrayOf(0xFF244B68.toInt(), 0xFF8CC4D0.toInt())
+        "demo:forest" -> intArrayOf(0xFF31584B.toInt(), 0xFFB5C98A.toInt())
+        "demo:bluehour" -> intArrayOf(0xFF324D84.toInt(), 0xFFB3A6CA.toInt())
+        else -> intArrayOf(0xFF725078.toInt(), 0xFFE5B78A.toInt())
+    }
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    paint.shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), colors[0], colors[1], Shader.TileMode.CLAMP)
+    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
+    paint.shader = null
+    paint.color = 0x55FFFFFF
+    canvas.drawCircle(width * 0.72f, height * 0.34f, width * 0.23f, paint)
+    paint.color = 0x33101828
+    canvas.drawOval(RectF(-width * 0.15f, height * 0.52f, width * 1.15f, height * 1.12f), paint)
+    val title = ExhibitionData.snapshot.comics.first { it.id == comicId }.title
+    paint.color = android.graphics.Color.WHITE
+    paint.typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+    paint.textSize = width * 0.105f
+    val lines = title.chunked(7).take(3)
+    lines.forEachIndexed { index, line ->
+        canvas.drawText(line, width * 0.09f, height * (0.76f + index * 0.07f), paint)
+    }
+    paint.textSize = width * 0.04f
+    paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    canvas.drawText("MELAAN · SAMPLE", width * 0.09f, height * 0.94f, paint)
     return bitmap
 }
 

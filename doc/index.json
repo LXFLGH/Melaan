@@ -75,6 +75,10 @@
       {
         "id": "contract-r18-cover-masking",
         "path": "contracts/r18-cover-masking.json"
+      },
+      {
+        "id": "contract-exhibition-mode",
+        "path": "contracts/exhibition-mode.json"
       }
     ],
     "decisions": [
@@ -155,6 +159,10 @@
       {
         "id": "changes-r18-cover-masking",
         "path": "changes/r18-cover-masking.json"
+      },
+      {
+        "id": "changes-exhibition-mode",
+        "path": "changes/exhibition-mode.json"
       }
     ],
     "verification": "verification/index.json"
@@ -305,6 +313,17 @@
         "contracts/r18-cover-masking.json",
         "modules/ui-shell.json",
         "changes/r18-cover-masking.json",
+        "verification/index.json"
+      ]
+    },
+    {
+      "task": "T14-exhibition-mode",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/exhibition-mode.json",
+        "modules/ui-shell.json",
+        "changes/exhibition-mode.json",
         "verification/index.json"
       ]
     }

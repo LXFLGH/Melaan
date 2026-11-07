@@ -24,7 +24,7 @@ object LibrarySnapshot {
     private var cached: LibrarySnapshotData? = null
     private var generation = 0L
 
-    fun peek(): LibrarySnapshotData? = cached
+    fun peek(): LibrarySnapshotData? = if (ExhibitionData.enabled) ExhibitionData.snapshot else cached
 
     fun invalidate() {
         synchronized(stateLock) {
@@ -34,6 +34,7 @@ object LibrarySnapshot {
     }
 
     suspend fun load(): LibrarySnapshotData {
+        if (ExhibitionData.enabled) return ExhibitionData.snapshot
         cached?.let { return it }
         return loadMutex.withLock {
             val existing = cached

@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0",
+  "id": "exhibition-mode",
+  "status": "implemented",
+  "baseline_revision": "f0153fe91740d62803cf4af73fa6c6781dbf1301",
+  "target_contracts": ["exhibition-mode"],
+  "requirements": ["R48"],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/MainActivity.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/ui/CoverImageCache.kt",
+    "app/src/main/java/com/melavonmen/an/data/ExhibitionData.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibrarySnapshot.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/ProgressStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryCollectionsStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt"
+  ],
+  "decisions": [
+    "Do not add a screen or alter the production navigation: switch only the in-memory data source beneath the app's real pages.",
+    "Use fictional metadata, covers, progress, favorites, and lists; all demonstration mutations remain process-local.",
+    "Block scans and real-library mutations while the exhibition dataset is active; process restart restores the original dataset."
+  ],
+  "planned_doc_changes": [
+    "Add R48 and the exhibition-mode contract.",
+    "Register data substitution and mode behavior in the UI shell module metadata."
+  ],
+  "implementation_changes": [
+    "Added the five-tap hidden trigger while retaining the standard Melaan navigation and screen routing.",
+    "Added in-memory dataset overrides to the shared snapshot, archive, progress, collections, bookmarks, and per-comic reader settings.",
+    "Added generated sample covers/pages and prevented scans or demo actions from touching persisted manga data."
+  ],
+  "observed_code_changes": [],
+  "validation_commands": [
+    ".\\gradlew.bat :app:assembleDebug --console=plain",
+    "adb install -r app/build/outputs/apk/debug/app-debug.apk",
+    "melavonmen validate_index.py --project D:\\Mycode\\Melaan",
+    "melavonmen validate_schema.py --project D:\\Mycode\\Melaan"
+  ],
+  "validation_results": [
+    "Debug APK build succeeded and installed to connected Android device.",
+    "ADB screenshot shows the standard Melaan home screen, navigation, and fictional catalog; no personal wallpaper or manga metadata is visible.",
+    "Document index and schema validation passed."
+  ],
+  "unverified": [
+    "Visual device verification of every tab and reader interactions with generated pages."
+  ],
+  "tests_not_run": [],
+  "sync_status": "implementation, debug build, installation, and home-screen screenshot verified"
+}

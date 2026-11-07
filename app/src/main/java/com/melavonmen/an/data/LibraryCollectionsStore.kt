@@ -12,16 +12,20 @@ class LibraryCollectionsStore(context: Context) {
     private val prefs: SharedPreferences = context.applicationContext
         .getSharedPreferences("library_collections", Context.MODE_PRIVATE)
 
-    fun favorites(): Set<String> = prefs.getStringSet(KEY_FAVORITES, emptySet()).orEmpty().toSet()
+    fun favorites(): Set<String> = if (ExhibitionData.enabled) ExhibitionData.favorites() else prefs.getStringSet(KEY_FAVORITES, emptySet()).orEmpty().toSet()
 
     fun setFavorite(comicId: String, favorite: Boolean) {
+        if (ExhibitionData.enabled) {
+            ExhibitionData.setFavorite(comicId, favorite)
+            return
+        }
         val next = favorites().toMutableSet().apply {
             if (favorite) add(comicId) else remove(comicId)
         }
         prefs.edit().putStringSet(KEY_FAVORITES, next).apply()
     }
 
-    fun bookLists(): List<ComicBookList> = prefs.getString(KEY_BOOK_LISTS, null)?.let { raw ->
+    fun bookLists(): List<ComicBookList> = if (ExhibitionData.enabled) ExhibitionData.bookLists() else prefs.getString(KEY_BOOK_LISTS, null)?.let { raw ->
         runCatching { (Json.parse(raw) as? List<*>)?.mapNotNull { value ->
             val row = value as? Map<*, *> ?: return@mapNotNull null
             val name = Json.asString(row["name"]).trim()
@@ -30,6 +34,7 @@ class LibraryCollectionsStore(context: Context) {
     }.orEmpty()
 
     fun createBookList(name: String): ComicBookList {
+        if (ExhibitionData.enabled) return ExhibitionData.createBookList(name)
         val cleaned = name.trim()
         require(cleaned.isNotEmpty() && cleaned.length <= 64) { "List name must contain 1 to 64 characters" }
         val lists = bookLists()
@@ -39,9 +44,15 @@ class LibraryCollectionsStore(context: Context) {
         return list
     }
 
-    fun removeBookList(name: String) = saveBookLists(bookLists().filterNot { it.name == name })
+    fun removeBookList(name: String) {
+        if (ExhibitionData.enabled) ExhibitionData.removeBookList(name) else saveBookLists(bookLists().filterNot { it.name == name })
+    }
 
     fun setBookListMembership(name: String, comicId: String, included: Boolean) {
+        if (ExhibitionData.enabled) {
+            ExhibitionData.setBookListMembership(name, comicId, included)
+            return
+        }
         val lists = bookLists()
         require(lists.any { it.name == name }) { "Unknown list" }
         saveBookLists(lists.map { list ->
@@ -62,6 +73,10 @@ class LibraryCollectionsStore(context: Context) {
     }.orEmpty()
 
     fun recordProgress(progress: ReadingProgress) {
+        if (ExhibitionData.enabled) {
+            ExhibitionData.saveProgress(progress)
+            return
+        }
         val atMillis = System.currentTimeMillis()
         val old = history()
         val next = (old.filterNot { it.comicId == progress.comicId } + progress)
@@ -76,12 +91,18 @@ class LibraryCollectionsStore(context: Context) {
         editor.apply()
     }
 
-    fun recent(limit: Int = MAX_HISTORY): List<ReadingHistoryEntry> = history()
+    fun recent(limit: Int = MAX_HISTORY): List<ReadingHistoryEntry> = if (ExhibitionData.enabled) {
+        ExhibitionData.snapshot.latest?.let { listOf(ReadingHistoryEntry(it, 1L)) }.orEmpty().take(limit.coerceAtLeast(0))
+    } else history()
         .map { ReadingHistoryEntry(it, prefs.getLong(KEY_PREFIX_TIME + it.comicId, 0L)) }
         .sortedByDescending(ReadingHistoryEntry::timestampMillis)
         .take(limit.coerceAtLeast(0))
 
     fun removeComic(comicId: String) {
+        if (ExhibitionData.enabled) {
+            ExhibitionData.removeComic(comicId)
+            return
+        }
         prefs.edit().putStringSet(KEY_FAVORITES, favorites() - comicId)
             .remove(KEY_PREFIX_TIME + comicId)
             .putString(KEY_HISTORY, history().filterNot { it.comicId == comicId }.joinToString(",", "[", "]") {

@@ -33,6 +33,11 @@ object ProgressStore {
     }
 
     fun save(p: ReadingProgress) {
+        if (ExhibitionData.enabled) {
+            ExhibitionData.saveProgress(p)
+            LibrarySnapshot.invalidate()
+            return
+        }
         val sp = prefs ?: throw IllegalStateException("ProgressStore.init(context) must be called before save")
         sp.edit()
             .putString(KEY_PREFIX + p.comicId, toJson(p))
@@ -42,16 +47,19 @@ object ProgressStore {
     }
 
     fun load(comicId: String): ReadingProgress? {
+        if (ExhibitionData.enabled) return ExhibitionData.progress(comicId)
         val raw = prefs?.getString(KEY_PREFIX + comicId, null) ?: return null
         return fromJson(raw)
     }
 
     fun latest(): ReadingProgress? {
+        if (ExhibitionData.enabled) return ExhibitionData.snapshot.latest
         val id = prefs?.getString(KEY_LATEST, null) ?: return null
         return load(id)
     }
 
     fun remove(comicId: String) {
+        if (ExhibitionData.enabled) return
         val sp = prefs ?: return
         val edit = sp.edit().remove(KEY_PREFIX + comicId)
         if (sp.getString(KEY_LATEST, null) == comicId) edit.remove(KEY_LATEST)

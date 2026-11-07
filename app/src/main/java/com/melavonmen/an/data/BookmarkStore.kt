@@ -16,11 +16,17 @@ object BookmarkStore {
     private const val PREFS = "reading_bookmarks"
     private const val KEY = "items"
     private var prefs: SharedPreferences? = null
+    private val exhibitionBookmarks = mutableListOf<ReaderBookmark>()
 
     fun init(context: Context) { prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
     internal fun initWithPrefs(sharedPreferences: SharedPreferences) { prefs = sharedPreferences }
 
     fun add(bookmark: ReaderBookmark) {
+        if (ExhibitionData.enabled) {
+            exhibitionBookmarks.removeAll { it.id == bookmark.id }
+            exhibitionBookmarks += bookmark
+            return
+        }
         val all = snapshot().filterNot { it.id == bookmark.id } + bookmark
         write(all)
     }
@@ -29,11 +35,18 @@ object BookmarkStore {
         .filter { it.comicId == comicId }
         .sortedByDescending { it.createdAtMillis }
 
-    fun remove(id: String) = write(snapshot().filterNot { it.id == id })
+    fun remove(id: String) {
+        if (ExhibitionData.enabled) exhibitionBookmarks.removeAll { it.id == id }
+        else write(snapshot().filterNot { it.id == id })
+    }
 
-    fun removeComic(comicId: String) = write(snapshot().filterNot { it.comicId == comicId })
+    fun removeComic(comicId: String) {
+        if (ExhibitionData.enabled) exhibitionBookmarks.removeAll { it.comicId == comicId }
+        else write(snapshot().filterNot { it.comicId == comicId })
+    }
 
     fun snapshot(): List<ReaderBookmark> {
+        if (ExhibitionData.enabled) return exhibitionBookmarks.toList()
         val raw = prefs?.getString(KEY, null) ?: return emptyList()
         val rows = runCatching { Json.parse(raw) as? List<*> }.getOrNull() ?: return emptyList()
         return rows.mapNotNull { row ->
@@ -47,6 +60,10 @@ object BookmarkStore {
     }
 
     fun merge(bookmarks: List<ReaderBookmark>) {
+        if (ExhibitionData.enabled) {
+            bookmarks.filter { it.comicId.startsWith("demo:") }.forEach { exhibitionBookmarks.add(it) }
+            return
+        }
         val byId = snapshot().associateBy { it.id }.toMutableMap()
         bookmarks.forEach { if (it.id !in byId && it.comicId.isNotBlank()) byId[it.id] = it }
         write(byId.values.toList())

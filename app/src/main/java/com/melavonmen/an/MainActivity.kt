@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ProgressStore
+import com.melavonmen.an.data.ExhibitionData
 import com.melavonmen.an.data.TagAliasStore
 import com.melavonmen.an.ui.MelaanApp
 import com.melavonmen.an.ui.CoverImageCache
@@ -69,6 +70,11 @@ class MainActivity : ComponentActivity() {
             }
             appReady.value = true
         }
+    }
+
+    override fun onDestroy() {
+        if (isFinishing) ExhibitionData.enabled = false
+        super.onDestroy()
     }
 }
 
