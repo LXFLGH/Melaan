@@ -573,7 +573,7 @@ private fun ComicCard(
                     .fillMaxWidth()
                     .aspectRatio(3f / 4f)
                     .clip(RoundedCornerShape(11.dp))
-                    .background(CardPlaceholder)
+                    .background(if (CoverImageCache.r18CoversBlocked) R18_COVER_MASK_COLOR else CardPlaceholder)
             ) {
                 val bmp = bitmap
                 if (bmp != null) {

@@ -83,12 +83,13 @@ import kotlin.math.sin
  * T3c 设置/我的（共享契约，签名禁改）：
  *   @Composable fun SettingsScreen()
  * 视觉参照 comic-app-preview.html #screen-me：扫描文件夹卡(路径+「重新扫描」) + 菜单
- * (扫描管理/阅读设置/缓存与数据库/深色阅读模式开关/阅读时屏幕常亮开关) + 统计条(藏书/已读页数/连续阅读)。
+ * (扫描管理/阅读设置/缓存与数据库/R18 封面屏蔽/深色阅读模式/阅读时屏幕常亮) + 统计条(藏书/已读页数/连续阅读)。
  *
  * 设置项持久化（SharedPreferences "melaan_settings"，阅读器集成契约，勿改键名）：
  *   tree_uri: String   — SAF 漫画文件夹 tree uri
  *   dark_reading: Boolean (默认 true)   — 深色阅读模式
  *   keep_screen_on: Boolean (默认 false) — 阅读时屏幕常亮
+ *   r18_cover_blocked: Boolean (默认 false) — 全局封面灰色屏蔽
  *   reader_scroll_mode: Boolean (默认 false) — 阅读器上下滚动模式
  */
 
@@ -155,6 +156,9 @@ fun SettingsScreen(
     var storedDataBytes by remember { mutableStateOf(0L) }
     var darkReading by remember { mutableStateOf(true) }
     var keepScreenOn by remember { mutableStateOf(false) }
+    var blockR18Covers by remember {
+        mutableStateOf(prefs(context).getBoolean(CoverImageCache.KEY_R18_COVER_BLOCKED, false))
+    }
     var scrollMode by remember { mutableStateOf(false) }
     var seamless by remember { mutableStateOf(true) }
     var rtl by remember { mutableStateOf(true) }
@@ -172,6 +176,8 @@ fun SettingsScreen(
             ?: listOfNotNull(sp.getString(KEY_TREE_URI, null)?.takeIf(String::isNotBlank))
         darkReading = sp.getBoolean(KEY_DARK_READING, true)
         keepScreenOn = sp.getBoolean(KEY_KEEP_SCREEN_ON, false)
+        blockR18Covers = sp.getBoolean(CoverImageCache.KEY_R18_COVER_BLOCKED, false)
+        CoverImageCache.setR18CoversBlocked(blockR18Covers)
         scrollMode = sp.getBoolean(KEY_READER_SCROLL_MODE, false)
         seamless = sp.getBoolean(KEY_READER_SEAMLESS, true)
         rtl = sp.getBoolean(KEY_READER_RTL, true)
@@ -532,6 +538,23 @@ fun SettingsScreen(
                 title = "备份与恢复",
                 subtitle = "导出本地阅读与书架数据",
                 onClick = { infoDialog = "backup" }
+            )
+            MenuRow(
+                icon = { TintedIconBox(Color(0xFF808080).copy(alpha = 0.12f)) { Icon(Icons.Default.Info, null, tint = Color(0xFF808080), modifier = Modifier.size(15.dp)) } },
+                title = stringResource(R.string.settings_r18_cover_blocking),
+                subtitle = stringResource(R.string.settings_r18_cover_blocking_summary),
+                trailing = {
+                    MiniSwitch(blockR18Covers) { enabled ->
+                        blockR18Covers = enabled
+                        prefs(context).edit().putBoolean(CoverImageCache.KEY_R18_COVER_BLOCKED, enabled).apply()
+                        CoverImageCache.setR18CoversBlocked(enabled)
+                    }
+                },
+                onClick = {
+                    blockR18Covers = !blockR18Covers
+                    prefs(context).edit().putBoolean(CoverImageCache.KEY_R18_COVER_BLOCKED, blockR18Covers).apply()
+                    CoverImageCache.setR18CoversBlocked(blockR18Covers)
+                }
             )
             MenuRow(
                 icon = { TintedIconBox(Color(0xFF6B72D6).copy(alpha = 0.1f)) { Icon(Icons.Default.Info, null, tint = Color(0xFF6B72D6), modifier = Modifier.size(15.dp)) } },

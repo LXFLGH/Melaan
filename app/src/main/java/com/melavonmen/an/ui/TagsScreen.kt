@@ -533,7 +533,7 @@ private fun ComicCard(
 private fun TagCoverImage(comicId: String) {
     val bitmap = rememberCoverBitmap(comicId, 480)
     Box(
-        Modifier.fillMaxWidth().aspectRatio(0.78f).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+        Modifier.fillMaxWidth().aspectRatio(0.78f).clip(RoundedCornerShape(10.dp)).background(if (CoverImageCache.r18CoversBlocked) R18_COVER_MASK_COLOR else MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
         bitmap?.let {

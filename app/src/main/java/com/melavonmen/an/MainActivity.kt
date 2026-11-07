@@ -22,6 +22,7 @@ import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ProgressStore
 import com.melavonmen.an.data.TagAliasStore
 import com.melavonmen.an.ui.MelaanApp
+import com.melavonmen.an.ui.CoverImageCache
 import com.melavonmen.an.ui.theme.MelavonmenAnTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,6 +32,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        CoverImageCache.setR18CoversBlocked(
+            getSharedPreferences("melaan_settings", MODE_PRIVATE)
+                .getBoolean(CoverImageCache.KEY_R18_COVER_BLOCKED, false)
+        )
         val appReady = mutableStateOf(false)
         setContent {
             MelavonmenAnTheme {

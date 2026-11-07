@@ -324,6 +324,13 @@
       "priority": "P1",
       "detail": "在导航性能优化版本基础上升级 APK 版本名至 1.0.12，versionCode 单调递增至 13。",
       "acceptance": "app/build.gradle.kts 为 versionName=1.0.12、versionCode=13；单元测试和 Debug 构建 0 failed；adb install -r 成功且设备 package 报告相同版本。"
+    },
+    {
+      "id": "R47",
+      "title": "R18 封面屏蔽模式",
+      "priority": "P1",
+      "detail": "设置页提供持久化的全局开关；开启时首页、书架、标签结果和作品详情中的所有漫画封面统一显示为灰色遮罩，清理封面缓存并停止新的封面读取。阅读器漫画页和作品元数据不受影响。",
+      "acceptance": "默认关闭；开启立即遮蔽全部封面并清除进程封面缓存；重启后仍保持开关状态；关闭后封面恢复正常加载。"
     }
   ],
   "issues": [],

@@ -148,6 +148,12 @@
       "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' ./gradlew -p . :app:testDebugUnitTest :app:assembleDebug --console=plain; adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk; adb -s connected-device shell dumpsys package com.melavonmen.an | grep -E 'versionCode|versionName'",
       "pass": "BUILD SUCCESSFUL; 62 tests, 0 failures, 0 errors; adb install Success; package reports versionName=1.0.12 versionCode=13; APK sha256 24b83043e442cb7c55850127c019db55b4beae60ece649ad46dc38d397777e7c",
       "covers": ["R46"]
+    },
+    {
+      "id": "V16",
+      "cmd": ".\\gradlew.bat :app:assembleDebug --console=plain; adb -s <connected-device> install -r app/build/outputs/apk/debug/app-debug.apk; adb -s <connected-device> shell dumpsys package com.melavonmen.an",
+      "pass": "BUILD SUCCESSFUL; adb install Success; device package reports versionName=1.0.12 versionCode=13",
+      "covers": ["R47"]
     }
   ],
   "manual_review": [
@@ -157,6 +163,7 @@
     "实机确认背景图重启恢复、导航热区隔离、阅读方式记忆、深色阅读与屏幕常亮",
     "在已安装的 APK 上实机确认双指缩放/平移、音量键翻页和亮度恢复。",
     "实机打开真实 RAR/CBR 页面，核验 SAF 流和大型归档逐页重扫耗时。",
+    "实机开启 R18 封面屏蔽，目视核验首页/书架/标签/详情均为统一灰色、重启后设置保留、关闭后封面恢复，且阅读器正文页保持正常。",
     "实机完成备份导出/合并导入，确认重复条目只移除书架索引。",
     "实机验证自动切话、书签跳转和长条漫画滚动位置恢复。",
     "在 a nested comic archive 上确认 438 个内层章节 ZIP 可逐话打开，且扫描阶段不展开整本。",

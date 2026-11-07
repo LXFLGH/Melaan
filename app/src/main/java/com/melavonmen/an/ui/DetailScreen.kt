@@ -205,7 +205,9 @@ private fun DetailHero(entry: ComicEntry, onBack: () -> Unit, onRequestDelete: (
                 }
         ) {
             val cover = rememberCoverBitmap(entry.id, 720)
-            if (cover != null) {
+            if (CoverImageCache.r18CoversBlocked) {
+                Box(Modifier.fillMaxSize().background(R18_COVER_MASK_COLOR))
+            } else if (cover != null) {
                 Image(
                     bitmap = cover.asImageBitmap(),
                     contentDescription = null,
@@ -586,7 +588,7 @@ private fun CoverImage(id: String, modifier: Modifier, targetW: Int) {
             contentScale = ContentScale.Crop
         )
     } else {
-        Box(modifier.background(TrackGray))
+        Box(modifier.background(if (CoverImageCache.r18CoversBlocked) R18_COVER_MASK_COLOR else TrackGray))
     }
 }
 

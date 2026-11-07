@@ -785,7 +785,7 @@ private fun CoverImage(id: String, modifier: Modifier, targetW: Int) {
             contentScale = ContentScale.Crop
         )
     } else {
-        Box(modifier.background(TrackGray))
+        Box(modifier.background(if (CoverImageCache.r18CoversBlocked) R18_COVER_MASK_COLOR else TrackGray))
     }
 }
 

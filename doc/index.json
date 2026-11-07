@@ -71,6 +71,10 @@
       {
         "id": "contract-navigation-switch-performance",
         "path": "contracts/navigation-switch-performance.json"
+      },
+      {
+        "id": "contract-r18-cover-masking",
+        "path": "contracts/r18-cover-masking.json"
       }
     ],
     "decisions": [
@@ -147,6 +151,10 @@
       {
         "id": "changes-version-1.0.12",
         "path": "changes/version-1.0.12.json"
+      },
+      {
+        "id": "changes-r18-cover-masking",
+        "path": "changes/r18-cover-masking.json"
       }
     ],
     "verification": "verification/index.json"
@@ -286,6 +294,17 @@
         "project.json",
         "requirements.json",
         "changes/version-1.0.12.json",
+        "verification/index.json"
+      ]
+    },
+    {
+      "task": "T13-r18-cover-masking",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/r18-cover-masking.json",
+        "modules/ui-shell.json",
+        "changes/r18-cover-masking.json",
         "verification/index.json"
       ]
     }

@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0",
+  "id": "r18-cover-masking",
+  "status": "implemented",
+  "baseline_revision": "815128b8a4a54567c3b83f3d68b639c8bfc21b26",
+  "target_contracts": ["r18-cover-masking"],
+  "requirements": ["R47"],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/MainActivity.kt",
+    "app/src/main/java/com/melavonmen/an/ui/CoverImageCache.kt",
+    "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/src/main/res/values/strings.xml"
+  ],
+  "decisions": [
+    "The switch is global and applies to every cover, because library metadata is not a reliable content-classification source.",
+    "The reader page image remains visible; this is cover privacy, not content filtering."
+  ],
+  "planned_doc_changes": [
+    "requirements.json adds R47",
+    "Add r18-cover-masking contract and register the contract, change, and task route in doc/index.json",
+    "Update ui-shell module responsibilities and verification index"
+  ],
+  "implementation_changes": [
+    "Added persisted global preference melaan_settings/r18_cover_blocked and an R18 Cover Blocking switch under Settings.",
+    "CoverImageCache exposes Compose-observable masking state; enabling it evicts the shared LRU and prevents new cover loads from publishing cached images.",
+    "Home, library, tag results, detail cover, and the detail blurred cover background now use the same solid gray while enabled; reader page images remain unchanged.",
+    "Added localized resource strings for the switch title and summary."
+  ],
+  "observed_code_changes": [
+    "MainActivity.kt initializes masking from SharedPreferences before composing the app.",
+    "CoverImageCache.kt owns the preference key, observable state, cache eviction, and masked bitmap load behavior.",
+    "HomeScreen.kt, LibraryScreen.kt, TagsScreen.kt, and DetailScreen.kt render the same gray placeholder while masking is enabled.",
+    "SettingsScreen.kt persists and applies the global switch; strings.xml supplies its display text."
+  ],
+  "validation_commands": [
+    ".\\gradlew.bat :app:assembleDebug --console=plain",
+    "adb -s <connected-device> install -r app/build/outputs/apk/debug/app-debug.apk",
+    "adb -s <connected-device> shell dumpsys package com.melavonmen.an"
+  ],
+  "validation_results": [
+    "BUILD SUCCESSFUL; :app:compileDebugKotlin and :app:assembleDebug passed. One pre-existing deprecated Icons.Filled.List warning remains.",
+    "ADB install returned Success; device reports versionName=1.0.12 versionCode=13.",
+    "melavonmen validate_index.py and validate_schema.py returned ok=true with 0 errors; all Doc JSON parsed successfully."
+  ],
+  "unverified": [
+    "Manual visual confirmation of every cover surface and reader-page exemption on the connected device."
+  ],
+  "tests_not_run": [
+    ":app:testDebugUnitTest was not run; this task requested a debug compile and ADB install."
+  ],
+  "sync_status": "implemented; build and ADB install verified; manual visual toggle check unverified"
+}
