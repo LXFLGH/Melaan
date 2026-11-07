@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "id": "melaan",
+  "name": "Melaan 漫画浏览 App",
+  "goal": "Android 12+ 原生漫画浏览 App：本地 7z 漫画库流式阅读 + 标签清洗（疑似重复键手动确认合并）",
+  "platform": {"os": "Android", "min_sdk": 31, "target_sdk": 37, "language": "Kotlin 2.2.10", "ui": "Jetpack Compose (BOM 2026.02.01)", "package": "com.melavonmen.an"},
+  "architecture": {
+    "style": "单 Activity + Compose 状态导航（四 Tab + 详情/阅读器浮层）",
+    "layers": [
+      "data-archive: 7z 流式读取（commons-compress）、元数据解析、SAF 扫描、阅读进度持久化",
+      "data-tags: 标签归一化（TagNormalizer）、变体组、别名覆盖层（TagAliasStore）、标签目录（TagCatalog）",
+      "ui: Shell(四 Tab) / Home(继续阅读) / Library(书架) / Detail / Reader / Tags(筛选+清洗) / Settings"
+    ],
+    "data_flow": "首次扫描或手动重扫 SAF 树 → 解析 7z metadata 与章节目录 → SQLite 保存已解析标签和最小书架索引、应用私有文件保存封面图 → 冷启动恢复 LibraryRepository 并供 UI 使用；阅读时按需流式取 webp 条目 → Bitmap 降采样解码 → 屏幕，不缓存页面；标签统计→变体组→用户确认→别名表→筛选/展示归一"
+  },
+  "upstream_inputs": [
+    "漫画库根目录（SAF tree uri）下的 *.7z",
+    "7z 内 metadata.json（id/title/authors/tags/works/actors/description/publish_date/update_date/page_count/views/likes/chapters）",
+    "参考原型：comic-app-preview.html、comic-tag-auditor.html"
+  ],
+  "downstream_outputs": ["阅读进度（SharedPreferences JSON）", "标签别名表（SharedPreferences JSON，canonical → variants[]）"],
+  "dependencies": [
+    {"id": "commons-compress", "version": "1.27.0", "purpose": "7z 解析与流式条目读取"},
+    {"id": "xz (org.tukaani)", "version": "1.10", "purpose": "LZMA2 解码后端"},
+    {"id": "androidx.compose", "version": "BOM 2026.02.01", "purpose": "UI"},
+    {"id": "AGP", "version": "9.5.0", "purpose": "构建"}
+  ],
+  "non_goals": [
+    "不回写/修改 7z 内 metadata.json（清洗结果只存别名覆盖层）",
+    "不做在线漫画源、账号、云同步",
+    "不做 iOS/桌面端",
+    "v1 不做 OPDS/网络库"
+  ],
+  "source_root": "app/src/main/java/com/melavonmen/an",
+  "test_root": "app/src/test/java/com/melavonmen/an"
+}

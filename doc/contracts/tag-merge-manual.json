@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0",
+  "id": "tag-merge-manual",
+  "status": "verified",
+  "title": "疑似重复键手动合并合同（禁止自动合并）",
+  "input_schema": "用户在清洗界面勾选的变体集合 + 选定的规范名",
+  "output_schema": "别名表新增 canonical -> [variants] 条目；筛选/展示走 canonicalOf() 归一",
+  "preconditions": [
+    "变体组来自 tag-normalize 合同输出",
+    "合并动作必须由用户在 MergeConfirmDialog 显式确认后才可写入"
+  ],
+  "postconditions": [
+    "确认后 TagAliasStore 持久化别名；canonicalOf(variant) 返回 canonical",
+    "撤销后别名表恢复该组合并前状态"
+  ],
+  "invariants": [
+    "无任何代码路径可在无用户确认的情况下写入别名表（自动合并路径禁止存在）",
+    "别名表是唯一合并事实源（覆盖层），7z 内 metadata.json 永不改写",
+    "规范名必须选自该组变体之一（不允许造新词）"
+  ],
+  "planned_interfaces": [
+    {
+      "qualified_name": "TagAliasStore.merge",
+      "parameters": [
+        {
+          "name": "canonical",
+          "type": "String"
+        },
+        {
+          "name": "variants",
+          "type": "Set<String>"
+        }
+      ],
+      "return_type": "Unit",
+      "errors": [
+        "InvalidCanonical"
+      ],
+      "source_evidence": null
+    },
+    {
+      "name": "TagAliasStore.undo",
+      "qualified_name": "TagAliasStore.undo",
+      "parameters": [
+        {
+          "name": "canonical",
+          "type": "String"
+        }
+      ],
+      "return_type": "Unit",
+      "errors": [],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "TagAliasStore.canonicalOf",
+      "parameters": [
+        {
+          "name": "tag",
+          "type": "String"
+        }
+      ],
+      "return_type": "String",
+      "errors": [],
+      "source_evidence": null
+    }
+  ],
+  "errors": [
+    "InvalidCanonical: 规范名不在变体集合内"
+  ],
+  "acceptance_tests": [
+    "UI 流程：勾选→选规范名→确认框显示影响条目数→确认后统计变化",
+    "未确认时杀进程重启，别名表无该组合并（草稿不持久化）",
+    "undo 后 canonicalOf(variant) 回到自身"
+  ],
+  "version": "1.0-proposed",
+  "sync_notes": "implemented+verified: TagAliasStore(object).merge() 为唯一写入口(TagCleanDialog.kt:245 确认回调)；TagAliasStoreTest 8/8 通过",
+  "actual_deviations": "API实况: TagAliasStore 为 object（init(context)/initWithPrefs）而非 class；merge(canonical,variants) 命名参与 UI 一致"
+}

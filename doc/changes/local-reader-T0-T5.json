@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "id": "local-reader-T0-T5",
+  "status": "implemented",
+  "baseline_revision": "workspace-2026-11-06",
+  "target_contracts": ["local-reader-t0-t5", "archive-stream", "reading-progress", "reader-experience", "library-collections", "library-scan-report"],
+  "requirements": ["R38", "R39", "R40", "R41", "R42", "R43"],
+  "tasks": [
+    {"id": "T0", "title": "RAR/CBR read backend", "owner": "archive-agent", "owned_paths": ["app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt", "app/src/main/java/com/melavonmen/an/data/LibraryScanner.kt", "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt", "app/build.gradle.kts", "gradle/libs.versions.toml"]},
+    {"id": "T1", "title": "multiple page bookmarks", "owner": "reader-agent", "owned_paths": ["app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt", "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt", "app/src/main/res/values/reader_bookmark_strings.xml"]},
+    {"id": "T2", "title": "auto-next chapter", "owner": "reader-agent", "owned_paths": ["app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt", "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt"]},
+    {"id": "T3", "title": "duplicate shelf cleanup", "owner": "library-agent", "owned_paths": ["app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt", "app/src/main/java/com/melavonmen/an/data/LibraryMaintenance.kt", "app/src/main/res/values/library_maintenance_strings.xml"]},
+    {"id": "T4", "title": "local data export/import", "owner": "library-agent", "owned_paths": ["app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt", "app/src/main/java/com/melavonmen/an/data/LocalBackup.kt", "app/src/main/res/values/local_backup_strings.xml"]},
+    {"id": "T5", "title": "long-strip scroll efficiency", "owner": "reader-agent", "owned_paths": ["app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt"]}
+  ],
+  "shared_file_rules": ["ReaderScreen.kt is owned only by reader-agent", "SettingsScreen.kt is owned only by library-agent, who also adds the T2 auto-next toggle row using ReaderSettingsStore's public API", "LibraryRepository.kt remains archive-agent owned; library-agent may consume current public APIs but cannot edit repository", "each agent owns independent unit-test files under its existing feature test package"],
+  "decisions": ["Auto-next defaults off.", "Duplicate removal requires confirmation and only removes the local index entry.", "Backup import is merge-only; archive files, SAF grants, and derived cover images are excluded.", "Use Junrar only for RAR decompression; the app does not create RAR-compatible archives. Initial support is single-volume and unencrypted, with explicit warnings for other variants. Reopen and rescan SAF streams to read requested pages without temporary files.", "Long-strip reading continues to use the existing vertical scroll preference and memory-only page data."],
+  "verification": ["feature unit tests", "./gradlew.bat :app:testDebugUnitTest", "./gradlew.bat :app:assembleDebug", "melavonmen document validators", "ADB install and manual reader/shelf checks if device allows"],
+  "implementation_changes": ["T0: Junrar 8.1.2 reads single-volume unencrypted RAR/CBR from SAF streams; unsupported variants are reported, and page reads reopen/rescan without temporary files.", "T1/T2/T5: multiple persistent bookmarks, default-off auto-next, and vertical scroll restoration keyed by comic/chapter; existing LazyColumn and six-bitmap cache bound long-strip page residency.", "T3/T4: title+size duplicate candidates require confirmation and remove only app index entries; versioned SAF JSON backup merges progress, bookmarks, reader preferences, user tags, approved tag aliases and shelf collections."],
+  "verification_results": ["`:app:testDebugUnitTest :app:compileDebugKotlin` BUILD SUCCESSFUL.", "`:app:assembleDebug` BUILD SUCCESSFUL.", "melavonmen validate_index.py and validate_schema.py both ok=true, 0 errors.", "ADB install -r succeeded on connected-device."],
+  "sync_status": "implemented; unit tests, Kotlin compile, debug APK build, document validators, and ADB install passed",
+  "unverified": ["RAR decode with a representative archive on physical Android", "SAF backup export/import interaction and merge state on device", "long-strip memory behavior and scroll restoration on device", "large RAR per-page rescan latency"]
+}

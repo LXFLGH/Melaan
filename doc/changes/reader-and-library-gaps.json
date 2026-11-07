@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "id": "reader-and-library-gaps",
+  "status": "implemented",
+  "baseline_revision": "workspace-2026-11-06",
+  "target_contracts": [
+    "reader-experience",
+    "library-collections",
+    "archive-stream",
+    "library-scan-report"
+  ],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryScanner.kt",
+    "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/ComicUserTagStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryCollectionsStore.kt",
+    "app/src/main/res/values/reader_strings.xml",
+    "app/src/main/res/values/library_strings.xml",
+    "app/src/test/java/com/melavonmen/an/ui/ReaderSpreadTest.kt",
+    "app/src/test/java/com/melavonmen/an/data/ArchiveCompatTest.kt",
+    "app/src/test/java/com/melavonmen/an/data/ArchiveReaderTest.kt",
+    "app/src/androidTest/java/com/melavonmen/an/LibraryCollectionsStoreTest.kt",
+    "app/src/androidTest/java/com/melavonmen/an/ReaderSettingsStoreTest.kt"
+  ],
+  "decisions": [
+    "CBZ uses ZIP backend; CBR is recognized but warned because commons-compress lacks RAR support.",
+    "Android 12 ImageDecoder handles AVIF and GIF without adding a dependency.",
+    "Per-comic settings override global values per field.",
+    "Reading history stores the latest position for at most 100 comics, sorted by timestamp.",
+    "User booklists store local comic IDs and can be filtered and edited in bulk."
+  ],
+  "planned_doc_changes": [
+    "requirements.json",
+    "contracts/reader-experience.json",
+    "contracts/library-collections.json",
+    "contracts/archive-stream.json",
+    "contracts/library-scan-report.json",
+    "modules/ui-reader.json",
+    "modules/data-archive.json",
+    "modules/ui-library.json",
+    "index.json",
+    "verification/index.json"
+  ],
+  "implementation_changes": [
+    "ReaderScreen: ImageDecoder、双指缩放/平移、页 seekbar、音量键翻页、亮度、横屏双页、单本覆盖设置、阅读历史记录。",
+    "LibraryScanner/ArchiveReader/LibraryRepository: CBZ ZIP 识别与读取、RAR/CBR 明确扫描提醒、AVIF 解码列表与 GIF 排除。",
+    "LibraryScreen/LibraryCollectionsStore: 收藏、命名书单、阅读历史时间线、多选批量加/移用户标签。",
+    "LibraryRepository.removeUserTag 与 ComicUserTagStore.removeTag 只修改应用本地用户标签。"
+  ],
+  "observed_code_changes": [
+    "ReaderScreen: ImageDecoder、双指缩放/平移、页 seekbar、音量键翻页、亮度、横屏双页、单本覆盖设置、阅读历史记录。",
+    "LibraryScanner/ArchiveReader/LibraryRepository: CBZ ZIP 识别与读取、RAR/CBR 明确扫描提醒、AVIF 解码列表与 GIF 排除。",
+    "LibraryScreen/LibraryCollectionsStore: 收藏、命名书单、阅读历史时间线、多选批量加/移用户标签。",
+    "LibraryRepository.removeUserTag 与 ComicUserTagStore.removeTag 只修改应用本地用户标签。"
+  ],
+  "verification": [
+    {
+      "command": ".\\gradlew.bat :app:testDebugUnitTest --console=plain",
+      "result": "BUILD SUCCESSFUL; 52 tests, 0 failures, 0 errors"
+    },
+    {
+      "command": ".\\gradlew.bat :app:assembleDebug :app:assembleDebugAndroidTest --console=plain",
+      "result": "BUILD SUCCESSFUL"
+    },
+    {
+      "command": "melavonmen validate_index.py + validate_schema.py",
+      "result": "both ok=true; 0 errors"
+    },
+    {
+      "command": ".\\gradlew.bat :app:connectedDebugAndroidTest --console=plain",
+      "result": "blocked at device test APK install; 0 test methods executed"
+    }
+  ],
+  "sync_status": "implemented; 52 unit tests and debug APKs build; document validators pass; device installation and Git drift unavailable",
+  "unverified": [
+    "Android instrumentation tests could not run: package manager denied test APK install (INSTALL_GRANT_RUNTIME_PERMISSIONS); direct adb install returned INSTALL_FAILED_USER_RESTRICTED.",
+    "Touch zoom/pan and volume-key behavior remain unverified on device.",
+    "Git-based doc drift could not run because workspace has no .git repository."
+  ]
+}

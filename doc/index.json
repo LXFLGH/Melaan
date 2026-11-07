@@ -1,0 +1,294 @@
+{
+  "schema_version": "melavonmen.doc/1",
+  "project": "melaan",
+  "source_revision": "workspace-2026-11-07",
+  "manifest": {
+    "project": "project.json",
+    "requirements": "requirements.json",
+    "modules": [
+      {
+        "id": "module-data-archive",
+        "path": "modules/data-archive.json"
+      },
+      {
+        "id": "module-data-tags",
+        "path": "modules/data-tags.json"
+      },
+      {
+        "id": "module-ui-shell",
+        "path": "modules/ui-shell.json"
+      },
+      {
+        "id": "module-ui-reader",
+        "path": "modules/ui-reader.json"
+      },
+      {
+        "id": "module-ui-tagclean",
+        "path": "modules/ui-tagclean.json"
+      },
+      {
+        "id": "module-ui-library",
+        "path": "modules/ui-library.json"
+      }
+    ],
+    "contracts": [
+      {
+        "id": "contract-archive-stream",
+        "path": "contracts/archive-stream.json"
+      },
+      {
+        "id": "contract-tag-normalize",
+        "path": "contracts/tag-normalize.json"
+      },
+      {
+        "id": "contract-tag-merge-manual",
+        "path": "contracts/tag-merge-manual.json"
+      },
+      {
+        "id": "contract-reading-progress",
+        "path": "contracts/reading-progress.json"
+      },
+      {
+        "id": "contract-library-scan-report",
+        "path": "contracts/library-scan-report.json"
+      },
+      {
+        "id": "contract-reader-experience",
+        "path": "contracts/reader-experience.json"
+      },
+      {
+        "id": "contract-library-collections",
+        "path": "contracts/library-collections.json"
+      },
+      {
+        "id": "contract-local-reader-t0-t5",
+        "path": "contracts/local-reader-t0-t5.json"
+      },
+      {
+        "id": "contract-nested-chapter-archive",
+        "path": "contracts/nested-chapter-archive.json"
+      },
+      {
+        "id": "contract-navigation-switch-performance",
+        "path": "contracts/navigation-switch-performance.json"
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decision-alias-overlay",
+        "path": "decisions/alias-overlay.json"
+      },
+      {
+        "id": "decision-streaming-7z",
+        "path": "decisions/streaming-7z.json"
+      },
+      {
+        "id": "decision-liquid-glass",
+        "path": "decisions/liquid-glass.json"
+      },
+      {
+        "id": "decision-derived-cache",
+        "path": "decisions/derived-cache.json"
+      },
+      {
+        "id": "decision-ui-customization",
+        "path": "decisions/ui-customization.json"
+      },
+      {
+        "id": "decision-adaptive-ui-and-import",
+        "path": "decisions/adaptive-ui-and-import.json"
+      },
+      {
+        "id": "decision-navigation-switch-performance",
+        "path": "decisions/navigation-switch-performance.json"
+      }
+    ],
+    "changes": [
+      {
+        "id": "changes-cache-reader-1.0.1",
+        "path": "changes/cache-reader-1.0.1.json"
+      },
+      {
+        "id": "changes-ui-startup-tags-1.0.2",
+        "path": "changes/ui-startup-tags-1.0.2.json"
+      },
+      {
+        "id": "changes-ui-customization",
+        "path": "changes/ui-customization.json"
+      },
+      {
+        "id": "changes-version-1.0.3",
+        "path": "changes/version-1.0.3.json"
+      },
+      {
+        "id": "changes-glass-archive-tags-tablet-theme",
+        "path": "changes/glass-archive-tags-tablet-theme.json"
+      },
+      {
+        "id": "changes-T1-T6",
+        "path": "changes/T1-T6-melaan-v1.json"
+      },
+      {
+        "id": "changes-reader-and-library-gaps",
+        "path": "changes/reader-and-library-gaps.json"
+      },
+      {
+        "id": "changes-local-reader-T0-T5",
+        "path": "changes/local-reader-T0-T5.json"
+      },
+      {
+        "id": "changes-nested-chapter-archives",
+        "path": "changes/nested-chapter-archives.json"
+      },
+      {
+        "id": "changes-navigation-switch-performance",
+        "path": "changes/navigation-switch-performance.json"
+      },
+      {
+        "id": "changes-version-1.0.12",
+        "path": "changes/version-1.0.12.json"
+      }
+    ],
+    "verification": "verification/index.json"
+  },
+  "task_routes": [
+    {
+      "task": "T1-data-archive",
+      "read": [
+        "project.json",
+        "modules/data-archive.json",
+        "contracts/archive-stream.json",
+        "contracts/reading-progress.json"
+      ]
+    },
+    {
+      "task": "T2-data-tags",
+      "read": [
+        "project.json",
+        "modules/data-tags.json",
+        "contracts/tag-normalize.json",
+        "contracts/tag-merge-manual.json"
+      ]
+    },
+    {
+      "task": "T3-ui-shell",
+      "read": [
+        "project.json",
+        "modules/ui-shell.json",
+        "contracts/reading-progress.json"
+      ]
+    },
+    {
+      "task": "T4-ui-reader",
+      "read": [
+        "project.json",
+        "modules/ui-reader.json",
+        "contracts/archive-stream.json",
+        "contracts/reading-progress.json"
+      ]
+    },
+    {
+      "task": "T5-ui-tagclean",
+      "read": [
+        "project.json",
+        "modules/ui-tagclean.json",
+        "contracts/tag-normalize.json",
+        "contracts/tag-merge-manual.json"
+      ]
+    },
+    {
+      "task": "T6-integration",
+      "read": [
+        "project.json",
+        "modules/ui-shell.json",
+        "modules/ui-reader.json",
+        "modules/ui-tagclean.json",
+        "modules/data-archive.json",
+        "modules/data-tags.json",
+        "contracts/archive-stream.json",
+        "contracts/tag-normalize.json",
+        "contracts/tag-merge-manual.json",
+        "contracts/reading-progress.json"
+      ]
+    },
+    {
+      "task": "T7-cache-reader-version",
+      "read": [
+        "project.json",
+        "modules/data-archive.json",
+        "modules/ui-reader.json",
+        "modules/ui-shell.json",
+        "contracts/archive-stream.json",
+        "contracts/reading-progress.json"
+      ]
+    },
+    {
+      "task": "T8-reader-and-library-gaps",
+      "read": [
+        "project.json",
+        "modules/ui-reader.json",
+        "modules/data-archive.json",
+        "modules/ui-library.json",
+        "contracts/reader-experience.json",
+        "contracts/library-collections.json",
+        "contracts/archive-stream.json",
+        "contracts/library-scan-report.json"
+      ]
+    },
+    {
+      "task": "T9-local-reader-T0-T5",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/local-reader-t0-t5.json",
+        "contracts/archive-stream.json",
+        "contracts/reading-progress.json",
+        "contracts/reader-experience.json",
+        "contracts/library-collections.json",
+        "contracts/library-scan-report.json",
+        "modules/data-archive.json",
+        "modules/ui-reader.json",
+        "modules/ui-library.json",
+        "changes/local-reader-T0-T5.json"
+      ]
+    },
+    {
+      "task": "T10-nested-chapter-archives",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/nested-chapter-archive.json",
+        "contracts/archive-stream.json",
+        "contracts/reading-progress.json",
+        "modules/data-archive.json",
+        "modules/ui-reader.json",
+        "changes/nested-chapter-archives.json"
+      ]
+    },
+    {
+      "task": "T11-navigation-switch-performance",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/navigation-switch-performance.json",
+        "contracts/reading-progress.json",
+        "decisions/navigation-switch-performance.json",
+        "modules/ui-shell.json",
+        "modules/ui-library.json",
+        "modules/data-archive.json",
+        "changes/navigation-switch-performance.json",
+        "verification/index.json"
+      ]
+    },
+    {
+      "task": "T12-version-1.0.12",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "changes/version-1.0.12.json",
+        "verification/index.json"
+      ]
+    }
+  ],
+  "unresolved": []
+}

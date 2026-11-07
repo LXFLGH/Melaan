@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0",
+  "id": "data-archive",
+  "responsibilities": "7z/ZIP/CBZ 与单卷未加密 RAR/CBR 流式只读；外层归档内的 ZIP/CBZ 子归档延迟到选中章节时解析；漫画页不落盘。负责 SAF 递归扫描、元数据容错、扫描警告、封面专用缓存、最小书架索引、章节/页编排、阅读进度与书签持久化",
+  "source_paths": [
+    "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
+    "app/src/main/java/com/melavonmen/an/data/Metadata.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryScanner.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/ProgressStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibrarySnapshot.kt",
+    "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryIndexStore.kt"
+  ],
+  "entrypoints": [
+    "LibraryRepository.scanAndIndex",
+    "LibraryRepository.resolveChapterForReading",
+    "LibraryRepository.releaseNestedChapter",
+    "ArchiveReader.open",
+    "ArchiveReader.readEntryBytes",
+    "ArchiveReader.resolveNestedChapter/readNestedPage/releaseNestedChapter",
+    "ProgressStore.load/save",
+    "LibrarySnapshot.peek/load/invalidate"
+  ],
+  "public_symbols": [
+    "ArchiveReader",
+    "ComicMeta",
+    "ChapterRef",
+    "ComicEntry",
+    "LibraryScanner",
+    "LibraryRepository",
+    "ScanReport",
+    "ScanWarning",
+    "ReadingProgress",
+    "ProgressStore",
+    "LibrarySnapshot",
+    "BookmarkStore",
+    "LibraryMaintenance"
+  ],
+  "data_structures": [
+    {
+      "name": "ComicMeta",
+      "fields": "id,title,authors,tags,publishDate,pageCount,description",
+      "source_evidence": null,
+      "note": "计划中；映射 metadata.json"
+    },
+    {
+      "name": "ChapterRef",
+      "fields": "name,pageEntryPaths:List<String>,nestedArchiveEntryPath:String?",
+      "source_evidence": null,
+      "note": "嵌套章节在打开前 pageEntryPaths 为空；单行本为合成单章"
+    },
+    {
+      "name": "ComicEntry",
+      "fields": "id,uri,title,authors,tags,format,isSerial,chapters,coverEntryName,sizeBytes",
+      "source_evidence": null,
+      "note": "计划中"
+    },
+    {
+      "name": "ReadingProgress",
+      "fields": "comicId,chapterIndex,pageIndex,percent",
+      "source_evidence": null,
+      "note": "计划中"
+    }
+  ],
+  "dependencies": [
+    "commons-compress 1.27.0",
+    "xz 1.10",
+    "Junrar 8.1.2 (read-only RAR; UnRAR license)",
+    "android.net (SAF)",
+    "android.database.sqlite"
+  ],
+  "related_contracts": [
+    "contracts/archive-stream.json",
+    "contracts/library-scan-report.json",
+    "contracts/reading-progress.json",
+    "contracts/local-reader-t0-t5.json",
+    "contracts/nested-chapter-archive.json",
+    "contracts/navigation-switch-performance.json"
+  ],
+  "related_wiki": []
+}

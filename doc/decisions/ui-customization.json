@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "id": "ui-customization",
+  "title": "应用背景、作品卡与阅读选项",
+  "chosen": "通过系统文档选择器设置应用私有授权的背景图 URI；背景只显示在四个主 Tab。作品卡复用现有 GlassSurface 视觉；阅读偏好由 SharedPreferences 驱动实际阅读器行为。",
+  "user_confirmation": "2026-11-05 用户要求设置 App 背景图、作品卡改磨砂玻璃、阅读方式可选并修复阅读开关，且移除作品详情路径。",
+  "tradeoffs": [
+    "背景图 URI 使用持久 SAF 读取授权，不复制或修改用户图片。",
+    "漫画阅读页继续使用专用实底，背景图不进入阅读器。",
+    "导航每个 Tab 扩展为整格热区，降低误触底层作品卡。"
+  ],
+  "affected_modules": ["ui-shell", "ui-reader", "ui-tagclean"],
+  "status": "approved"
+}

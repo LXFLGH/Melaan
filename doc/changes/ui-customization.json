@@ -1,0 +1,32 @@
+{
+  "id": "ui-customization",
+  "status": "implemented",
+  "scope": [
+    "作品详情移除本地文件路径区块",
+    "增加可持久恢复的 App 背景图选择与清除",
+    "首页、书架、标签筛选结果的作品卡改用圆角磨砂玻璃底",
+    "底部导航热区覆盖整格，阻止点击穿透",
+    "深色阅读和屏幕常亮开关接入阅读器行为",
+    "设置页提供实际阅读方式、方向和图片适配选择",
+    "首页搜索按作品名、作者和标签过滤"
+  ],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt"
+  ],
+  "validation_commands": [
+    "$env:JAVA_HOME='C:\\Program Files\\Android\\Android Studio\\jbr'; .\\gradlew.bat :app:assembleDebug"
+  ],
+  "validation_results": [
+    "BUILD SUCCESSFUL; app:assembleDebug produced the debug APK"
+  ],
+  "unverified": [
+    "实机逐项点击验证导航热区、壁纸重启恢复和阅读器屏幕常亮行为"
+  ],
+  "sync_status": "implemented"
+}

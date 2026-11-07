@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "id": "alias-overlay",
+  "title": "标签合并结果存 App 本地覆盖层，不回写 7z",
+  "options": [
+    {"id": "O1", "desc": "App 本地别名覆盖层（SharedPreferences JSON）"},
+    {"id": "O2", "desc": "重打包 7z 回写 metadata.json"},
+    {"id": "O3", "desc": "维护旁路 metadata 副本文件"}
+  ],
+  "chosen": "O1",
+  "tradeoffs": [
+    "O1：零风险、可撤销、实现简单；跨 App 不生效（接受）",
+    "O2：数据一致但重写用户归档，违背只读约束与素材保护红线，代价不可接受",
+    "O3：多一份冗余文件需同步，收益不足"
+  ],
+  "user_confirmation": "2026-11-05 用户指令：归一化重复键为用户手动选择并确认；未授权改写归档",
+  "affected_contracts": ["tag-merge-manual"],
+  "status": "approved"
+}

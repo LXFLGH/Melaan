@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "id": "liquid-glass",
+  "title": "Liquid Glass（iOS26 风格）分级实现",
+  "options": [
+    {
+      "id": "O1",
+      "desc": "API 33+ AGSL 折射/高光全效果，31-32 模糊+着色降级"
+    },
+    {
+      "id": "O2",
+      "desc": "全版本仅模糊+高光描边（CSS 式近似）"
+    },
+    {
+      "id": "O3",
+      "desc": "引入第三方 AndroidLiquidGlass/Haze 库"
+    }
+  ],
+  "chosen": "O1 全量实现：API 33+ AGSL(SDF边缘折射+RGB色散+菲涅尔+顶光高光) / 31-32 RenderEffect模糊+tint；所有页面共享 Shell 背景取样状态，普通作品卡及浮层不再默认退化为无背景采样的装饰档",
+  "tradeoffs": [
+    "O1：还原度最高；AGSL 需 API 33+，minSdk 31 需分级",
+    "O2：实现快、兼容 31+，无真折射；作为 v1 基线",
+    "O3：功能全但引入实验性依赖，锁定风险；接口隔离后可替换"
+  ],
+  "user_confirmation": "2026-11-05 用户：希望 iOS26 的那种玻璃效果（用于浮层/底栏/按钮；阅读页保持实底）",
+  "affected_contracts": [],
+  "status": "implemented",
+  "sync_notes": "Glass.kt 默认 GlassSurface 读取 LocalGlassState；Shell 捕获壁纸层供首页/书架/标签/我的/详情的玻璃卡片采样。API 33+ AGSL tint alpha 12.5%，API 31-32 模糊档 tint alpha 28%；全页卡片与按钮使用共享采样。assembleDebug 通过；真实设备视觉尚未逐项验收。"
+}

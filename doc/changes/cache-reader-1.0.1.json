@@ -1,0 +1,40 @@
+{
+  "id": "cache-reader-1.0.1",
+  "status": "implemented",
+  "scope": [
+    "冷启动恢复最小书架索引与已解析标签",
+    "将封面图字节缓存到应用私有目录，并在重扫时刷新",
+    "左右翻页增加水平滑动",
+    "持久化上下滚动阅读模式",
+    "修正归档中命名封面的发现与排除规则",
+    "将 Android versionName 更新到 1.0.1"
+  ],
+  "persistence_contract": {
+    "sqlite": ["archive uri", "title", "parsed tags", "chapter names and page entry paths", "archive size", "cover entry name"],
+    "private_files": ["cover image bytes only"],
+    "never_persist": ["comic page image bytes", "7z archive bytes"]
+  },
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/data/LibraryIndexStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/build.gradle.kts"
+  ],
+  "validation_commands": [
+    ".\\gradlew.bat :app:assembleDebug",
+    "Parse all doc/**/*.json with PowerShell ConvertFrom-Json",
+    "Inspect app/build/outputs/apk/debug/output-metadata.json",
+    "rg -n 'writeBytes|FileOutputStream|parsed-covers|readPage' app/src/main/java/com/melavonmen/an/data"
+  ],
+  "validation_results": [
+    "BUILD SUCCESSFUL",
+    "All doc JSON parses",
+    "app-debug.apk versionCode=2 versionName=1.0.1",
+    "Only cover-cache path writes files; readPage does not write page bytes"
+  ],
+  "unverified": ["Unit tests not run", "真机滑动手势与 SAF 提供程序兼容性"],
+  "sync_status": "implemented"
+}

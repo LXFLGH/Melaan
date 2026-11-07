@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-navigation-switch-performance",
+  "status": "approved",
+  "options": [
+    {
+      "id": "keep-all-tabs-composed",
+      "tradeoffs": "重复切换最快，但隐藏页面仍持有组合、玻璃渲染资源与多个封面缓存；首次进入还会并发加载多页，不采用。"
+    },
+    {
+      "id": "shared-snapshot-and-cover-lru",
+      "tradeoffs": "保留现有按需组合与 SaveableStateHolder，只共享必要数据和封面；重复读取/解码显著减少，需在所有数据写入口失效快照。"
+    },
+    {
+      "id": "persistent-derived-cache",
+      "tradeoffs": "可跨进程加速，但引入数据版本、迁移和一致性成本；本次导航优化不需要，不采用。"
+    }
+  ],
+  "chosen": "shared-snapshot-and-cover-lru",
+  "tradeoffs": [
+    "增加最多 32 MiB 解码封面内存，不换入漫画阅读页 Bitmap",
+    "首次打开标签页仍需计算派生统计，但计算移至 Dispatchers.Default，点击和导航组合不被其阻塞",
+    "无 Git 基线且设备拒绝输入注入，优化前后帧率数值不能在本回合自动采集"
+  ],
+  "user_confirmation": "用户明确要求依据 melavonmen skill 优化导航切换卡顿；本方案不改变功能、视觉、持久化协议或素材，属于该授权内实现。",
+  "affected_contracts": ["navigation-switch-performance", "reading-progress", "library-collections"]
+}

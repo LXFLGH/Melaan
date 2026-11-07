@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "id": "nested-chapter-archives",
+  "status": "implemented",
+  "baseline_revision": "workspace-2026-11-07",
+  "target_contracts": ["nested-chapter-archive", "archive-stream", "reading-progress"],
+  "requirements": ["R44"],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryIndexStore.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
+    "app/src/test/java/com/melavonmen/an/data/ArchiveReaderTest.kt",
+    "app/src/test/java/com/melavonmen/an/data/LibraryIndexCodecTest.kt"
+  ],
+  "decisions": [
+    "Treat .zip/.cbz entries in a supported outer archive as lazy chapter descriptors; derive chapter names from their entry names.",
+    "Do not enumerate nested page contents during library scan; resolve only the chapter the user opens.",
+    "Keep only the active chapter ZIP in memory, cap it at 64 MiB, and release it on chapter change or reader exit.",
+    "Nested ZIP/CBZ support is one level deep; nested 7z/RAR and encrypted inner ZIP are out of scope.",
+    "The referenced sample has 438 child ZIPs with a largest uncompressed chapter archive of 42,430,482 bytes; a 64 MiB ceiling bounds the one active in-memory nested ZIP while covering the sample."
+  ],
+  "implementation_changes": [
+    "Extend ChapterRef and LibraryIndexStore to persist a nested archive entry path while keeping page lists empty until open.",
+    "Add an in-memory nested ZIP reader exposing page paths and on-demand page reads.",
+    "Resolve nested pages when ReaderScreen enters that chapter; release resources when the chapter changes or reader exits.",
+    "Bump the chapter parser version so existing libraries reindex and discover nested chapter ZIPs."
+  ],
+  "verification": [
+    "Nested ZIP fixture with multiple chapters and image pages verifies lazy outer scan, natural page order, and byte reads.",
+    "Test 64 MiB boundary, invalid nested ZIP, and persisted nested ChapterRef.",
+    "Run :app:testDebugUnitTest and :app:assembleDebug.",
+    "Run melavonmen validate_index.py and validate_schema.py."
+  ],
+  "verification_results": [":app:compileDebugKotlin BUILD SUCCESSFUL.", ":app:testDebugUnitTest BUILD SUCCESSFUL.", ":app:assembleDebug BUILD SUCCESSFUL.", "ArchiveReaderTest covers lazy chapter discovery, natural inner-page order, page reads, invalid nested ZIP, and the size limit.", "LibraryIndexCodecTest covers nested archive path persistence and legacy index compatibility.", "melavonmen validate_index.py and validate_schema.py both ok=true, 0 errors.", "ADB install -r succeeded on connected-device."],
+  "sync_status": "implemented, unit tests and APK build passed, docs validated, and APK installed",
+  "sample_evidence": "a nested comic archive contains 438 inner ZIPs; summed nested uncompressed size is 2,285,206,218 bytes; largest child ZIP is 42,430,482 bytes, below the 64 MiB limit.",
+  "unverified": ["memory and latency on the 2.18 GB user archive on physical Android"]
+}

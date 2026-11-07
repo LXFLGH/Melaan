@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "id": "reading-progress",
+  "status": "verified",
+  "title": "阅读进度/书签合同",
+  "input_schema": "comicId + chapterIndex + pageIndex + percent",
+  "output_schema": "ReadingProgress 持久化（SharedPreferences，key=progress.<comicId>，JSON）",
+  "preconditions": [
+    "comicId 稳定（uri 字符串）"
+  ],
+  "postconditions": [
+    "退出阅读器/翻页节流时保存；冷启动首页读取最近一条渲染继续阅读卡"
+  ],
+  "invariants": [
+    "进度写入是幂等覆盖；不写入 7z 内部"
+  ],
+  "planned_interfaces": [
+    {
+      "qualified_name": "ProgressStore.save",
+      "parameters": [
+        {
+          "name": "p",
+          "type": "ReadingProgress"
+        }
+      ],
+      "return_type": "Unit",
+      "errors": [],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "ProgressStore.load",
+      "parameters": [
+        {
+          "name": "comicId",
+          "type": "String"
+        }
+      ],
+      "return_type": "ReadingProgress?",
+      "errors": [],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "ProgressStore.latest",
+      "parameters": [],
+      "return_type": "ReadingProgress?",
+      "errors": [],
+      "source_evidence": null
+    }
+  ],
+  "errors": [],
+  "acceptance_tests": [
+    "翻页后退出重进定位到同一页；首页继续阅读卡显示同一话数与百分比"
+  ],
+  "version": "1.0-proposed",
+  "sync_notes": "implemented+verified: ProgressStore SharedPreferences JSON；ProgressStoreTest 7/7",
+  "actual_deviations": "API实况: ReadingProgress(comicId,chapterIndex,pageIndex,percent) 于 ProgressStore.kt"
+}

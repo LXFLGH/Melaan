@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.0",
+  "acceptance_route": [
+    {
+      "id": "V1",
+      "cmd": "cd . && JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew :app:testDebugUnitTest",
+      "pass": "0 failed",
+      "covers": [
+        "R6",
+        "R7",
+        "R8",
+        "R9"
+      ]
+    },
+    {
+      "id": "V2",
+      "cmd": "cd . && JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew assembleDebug",
+      "pass": "BUILD SUCCESSFUL",
+      "covers": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R10",
+        "R11",
+        "R12",
+        "R13",
+        "R14",
+        "R15"
+      ]
+    },
+    {
+      "id": "V3",
+      "cmd": "grep -rn \"ZipOutputStream\\|createZip\\|extractToFile\\|FileOutputStream\" app/src/main/java/com/melavonmen/an/data | grep -v test",
+      "pass": "无解压/写归档调用（空输出或仅注释）",
+      "covers": [
+        "R9"
+      ]
+    },
+    {
+      "id": "V4",
+      "cmd": "grep -n \"minSdk\" app/build.gradle.kts",
+      "pass": "minSdk = 31",
+      "covers": [
+        "R11"
+      ]
+    },
+    {
+      "id": "V5",
+      "cmd": "rg -n \"writeBytes|FileOutputStream|parsed-covers|readPage\" app/src/main/java/com/melavonmen/an/data",
+      "pass": "磁盘写入仅为封面缓存；漫画页读取无磁盘写入",
+      "covers": [
+        "R9",
+        "R12"
+      ]
+    },
+    {
+      "id": "V6",
+      "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:assembleDebug",
+      "pass": "BUILD SUCCESSFUL",
+      "covers": [
+        "R16",
+        "R17",
+        "R18",
+        "R19",
+        "R20"
+      ]
+    },
+    {
+      "id": "V7",
+      "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:assembleDebug; & 'adb' -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
+      "pass": "BUILD SUCCESSFUL and Success; package reports versionName=1.0.3 versionCode=4",
+      "covers": [
+        "R14"
+      ]
+    },
+    {
+      "id": "V8",
+      "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:assembleDebug; & 'adb' -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
+      "pass": "BUILD SUCCESSFUL and Success; package reports versionName=1.0.4 versionCode=5",
+      "covers": [
+        "R14",
+        "R21",
+        "R22",
+        "R23",
+        "R24",
+        "R25"
+      ]
+    },
+    {
+      "id": "V9",
+      "cmd": "./gradlew :app:testDebugUnitTest",
+      "pass": "52 tests, 0 failures, 0 errors",
+      "covers": [
+        "R26",
+        "R27",
+        "R29",
+        "R30",
+        "R31",
+        "R33",
+        "R35",
+        "R36",
+        "R37"
+      ]
+    },
+    {
+      "id": "V10",
+      "cmd": "./gradlew :app:assembleDebug :app:assembleDebugAndroidTest",
+      "pass": "BUILD SUCCESSFUL",
+      "covers": [
+        "R26",
+        "R28",
+        "R32",
+        "R34",
+        "R37"
+      ]
+    },
+    {
+      "id": "V11",
+      "cmd": "python <USER_HOME>/.codex/skills/melavonmen/scripts/validate_index.py --project .; python <USER_HOME>/.codex/skills/melavonmen/scripts/validate_schema.py --project .",
+      "pass": "both ok=true, 0 errors",
+      "covers": [
+        "R26",
+        "R37"
+      ]
+    },
+    {
+      "id": "V12",
+      "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug",
+      "pass": "BUILD SUCCESSFUL; unit tests pass",
+      "covers": ["R38", "R39", "R40", "R41", "R42", "R43"]
+    },
+    {
+      "id": "V13",
+      "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain; adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
+      "pass": "BUILD SUCCESSFUL; nested ZIP tests pass; install Success",
+      "covers": ["R44"]
+    },
+    {
+      "id": "V14",
+      "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' ./gradlew -p . :app:testDebugUnitTest :app:assembleDebug --console=plain",
+      "pass": "BUILD SUCCESSFUL; 62 tests, 0 failures, 0 errors；快照失效与共享封面缓存静态调用链检查通过；实机导航因 INJECT_EVENTS 限制单独手动验收",
+      "covers": ["R1", "R12", "R45"]
+    },
+    {
+      "id": "V15",
+      "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' ./gradlew -p . :app:testDebugUnitTest :app:assembleDebug --console=plain; adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk; adb -s connected-device shell dumpsys package com.melavonmen.an | grep -E 'versionCode|versionName'",
+      "pass": "BUILD SUCCESSFUL; 62 tests, 0 failures, 0 errors; adb install Success; package reports versionName=1.0.12 versionCode=13; APK sha256 24b83043e442cb7c55850127c019db55b4beae60ece649ad46dc38d397777e7c",
+      "covers": ["R46"]
+    }
+  ],
+  "manual_review": [
+    "变体合并无自动路径（tag-merge-manual 合同不变量）",
+    "UI 与 comic-app-preview.html 结构对照（四 Tab/继续阅读/详情/阅读器）",
+    "实机确认启动加载状态、题材标签折叠和筛选漫画封面",
+    "实机确认背景图重启恢复、导航热区隔离、阅读方式记忆、深色阅读与屏幕常亮",
+    "在已安装的 APK 上实机确认双指缩放/平移、音量键翻页和亮度恢复。",
+    "实机打开真实 RAR/CBR 页面，核验 SAF 流和大型归档逐页重扫耗时。",
+    "实机完成备份导出/合并导入，确认重复条目只移除书架索引。",
+    "实机验证自动切话、书签跳转和长条漫画滚动位置恢复。",
+    "在 a nested comic archive 上确认 438 个内层章节 ZIP 可逐话打开，且扫描阶段不展开整本。",
+    "Connected Android instrumentation test 先前受 INSTALL_GRANT_RUNTIME_PERMISSIONS / INSTALL_FAILED_USER_RESTRICTED 限制，未执行测试方法。",
+    "依次手动点击首页/书架/标签/我的并往返切换，确认无卡顿、内容/筛选/进度正确；ADB input 被 INJECT_EVENTS 拒绝，无法自动注入导航点击。"
+  ]
+}

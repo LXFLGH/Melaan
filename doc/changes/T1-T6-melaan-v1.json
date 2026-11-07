@@ -1,0 +1,58 @@
+{
+  "id": "T1-T6-melaan-v1",
+  "baseline_revision": "workspace-2026-11-05",
+  "target_contracts": [
+    "tag-normalize",
+    "tag-merge-manual",
+    "archive-stream",
+    "reading-progress"
+  ],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/**",
+    "app/src/test/java/com/melavonmen/an/data/**"
+  ],
+  "decisions": [
+    "alias-overlay",
+    "streaming-7z",
+    "liquid-glass"
+  ],
+  "implementation_changes": [
+    "7 worker 并行实现（T1/T2/T3a/T3b/T3c/T4/T5），主 Agent 接管 T2（用户指令）并统一集成修复",
+    "集成修复4处: material-icons-extended 依赖、ArchiveReader KDoc 内嵌 */ 提前终止注释、$ch话 标识符解析、HomeScreen/DetailScreen 缺 material3.Text 导入"
+  ],
+  "verification": [
+    {
+      "cmd": "gradlew :app:testDebugUnitTest",
+      "result": "46 tests, 0 failed"
+    },
+    {
+      "cmd": "gradlew assembleDebug",
+      "result": "BUILD SUCCESSFUL, app-debug.apk 65,292,966 bytes"
+    },
+    {
+      "cmd": "grep FileOutputStream/ZipOutputStream data/",
+      "result": "空 — 无解压落盘"
+    },
+    {
+      "cmd": "grep .merge( main/",
+      "result": "唯一调用点 TagCleanDialog.kt:245（确认回调内）"
+    }
+  ],
+  "sync_status": "verified",
+  "timestamp": "2026-11-05T22:14:20.954856",
+  "post_release_fixes": [
+    {
+      "scope": "真机反馈 5 项",
+      "fixes": [
+        "MetadataParser: UTF-8 BOM 剔除（标题/tags 丢失根因）",
+        "ArchiveReader: 条目名反斜杠归一化 + metadata.json 深层容错",
+        "Glass: AGSL 预乘保留 alpha（发黑根因=强写 a=1 + 背板 padding 造成空取样）",
+        "Shell/各屏: 移除背板 padding，改屏内底部留白",
+        "ReaderScreen: 新增上下滚动模式（LazyColumn + 页码反写）",
+        "Settings: 扫描管理/阅读设置/缓存 三个死按钮接上行为"
+      ],
+      "verification": "testDebugUnitTest 48 tests 0 failed; assembleDebug BUILD SUCCESSFUL; app-debug.apk 66,109,894 B",
+      "timestamp": "2026-11-05T22:45:44.355721"
+    }
+  ]
+}

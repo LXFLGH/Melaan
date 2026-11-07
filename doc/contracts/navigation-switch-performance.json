@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "id": "navigation-switch-performance",
+  "status": "implemented",
+  "title": "四 Tab 导航切换性能",
+  "requirements": ["R1", "R12", "R45"],
+  "input_schema": "用户点击首页/书架/标签/我的导航；当前 LibraryRepository 漫画索引与 ProgressStore 阅读进度",
+  "output_schema": "页面功能、筛选结果、阅读进度和视觉不变；进程内共享 LibrarySnapshot 与有界封面 Bitmap LRU；首屏派生标签统计在后台计算",
+  "preconditions": [
+    "LibraryRepository、ProgressStore 已完成初始化",
+    "只缓存应用已拥有的漫画索引、阅读进度和封面，不读取或改写额外用户文件"
+  ],
+  "postconditions": [
+    "同一进程内重复切换 Tab 不再逐页重复解析所有阅读进度 JSON",
+    "相同 comicId 与目标宽度的封面命中共享内存缓存，避免重复磁盘读取和 Bitmap 解码",
+    "标签目录、变体组和首页/书架标签统计不阻塞 Compose 主线程组合",
+    "进度保存、备份导入、扫描、删除作品或用户标签变化会使共享快照失效，后续读取获得新数据",
+    "封面内存缓存按解码字节数限制为 32 MiB；漫画页面 Bitmap 不进入该缓存"
+  ],
+  "invariants": [
+    "四 Tab 的公开 Composable 签名、导航行为、筛选语义和持久化格式不变",
+    "不保留隐藏页面在组合树中，不以增加后台 GPU/内存负载换取切换速度",
+    "缓存只存在进程内存；磁盘仍仅保存既有封面和最小书架索引",
+    "用户素材与漫画归档不删除、不替换、不改写"
+  ],
+  "errors": [
+    "缓存未命中时回退到现有 LibraryRepository/ProgressStore 读取路径",
+    "封面读取或解码失败时维持既有占位背景，不阻断导航"
+  ],
+  "acceptance_tests": [
+    ":app:testDebugUnitTest 与 :app:assembleDebug 均为 0 failed/BUILD SUCCESSFUL",
+    "静态调用链确认 ProgressStore.save/remove 与 LibraryRepository.scan/removeComic/addUserTag/removeUserTag 会使 LibrarySnapshot 失效",
+    "首页、书架、标签、详情的封面入口统一经过共享 32 MiB LRU",
+    "实机依次点击四 Tab，页面内容、筛选和阅读进度正确；该项受 ADB INJECT_EVENTS 限制时需用户手动验收"
+  ],
+  "version": "1.0"
+}

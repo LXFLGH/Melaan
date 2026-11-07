@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "id": "streaming-7z",
+  "title": "7z 流式读取技术选型",
+  "options": [
+    {"id": "O1", "desc": "Apache commons-compress 1.27.0 + tukaani xz（纯 Java）"},
+    {"id": "O2", "desc": "sevenzipjbinding（glibc JNI，Android 不可用）"},
+    {"id": "O3", "desc": "7-Zip-JBinding-4Android（NDK 重编译）"}
+  ],
+  "chosen": "O1",
+  "tradeoffs": [
+    "O1：Android 直接可用、依赖轻；顺序读性能好，实心包随机跳转受格式限制（建议 -ms=off 打包）",
+    "O2：官方引擎但 .so 为 glibc 构建，Android(bionic) 无法加载，排除",
+    "O3：性能最佳但引入 NDK 构建复杂度，留作后续升级路径（ArchiveReader 接口隔离）"
+  ],
+  "user_confirmation": "2026-11-05 用户确认阅读须不解压不缓存实时观看（库大文件多）",
+  "affected_contracts": ["archive-stream"],
+  "status": "approved"
+}

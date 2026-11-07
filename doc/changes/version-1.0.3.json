@@ -1,0 +1,16 @@
+{
+  "id": "version-1.0.3",
+  "status": "implemented",
+  "scope": ["APK versionName updated to 1.0.3", "versionCode incremented to 4"],
+  "affected_source_paths": ["app/build.gradle.kts"],
+  "validation_commands": [
+    ".\\gradlew.bat :app:assembleDebug",
+    "adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk"
+  ],
+  "validation_results": [
+    "BUILD SUCCESSFUL",
+    "ADB install -r returned Success; installed package reports versionName=1.0.3 and versionCode=4"
+  ],
+  "unverified": [],
+  "sync_status": "implemented"
+}

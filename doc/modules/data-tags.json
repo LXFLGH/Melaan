@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "id": "data-tags",
+  "responsibilities": "标签归一化（NFKC+小写+去空白+去标点+繁简）、疑似变体组计算、标签别名覆盖层（手动合并结果）、按作品持久保存的用户标签覆盖、标签目录统计（频次/条目数）、交集筛选谓词",
+  "source_paths": [
+    "app/src/main/java/com/melavonmen/an/data/TagNormalizer.kt",
+    "app/src/main/java/com/melavonmen/an/data/TagAliasStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/TagCatalog.kt",
+    "app/src/main/java/com/melavonmen/an/data/ComicUserTagStore.kt"
+  ],
+  "entrypoints": [
+    "TagNormalizer.normKey",
+    "TagNormalizer.variantGroups",
+    "TagAliasStore.merge/undo/canonicalOf",
+    "TagCatalog.build",
+    "TagCatalog.filterIntersection"
+  ],
+  "public_symbols": [
+    "TagNormalizer",
+    "VariantGroup",
+    "TagAliasStore",
+    "TagCatalog",
+    "TagStat",
+    "ComicUserTagStore.get",
+    "ComicUserTagStore.add",
+    "ComicUserTagStore.removeTag",
+    "ComicUserTagStore.remove"
+  ],
+  "data_structures": [
+    {
+      "name": "VariantGroup",
+      "fields": "normKey,variants:Map<String,Int>",
+      "source_evidence": null,
+      "note": "计划中"
+    },
+    {
+      "name": "TagStat",
+      "fields": "tag,count,entryCount,normKey",
+      "source_evidence": null,
+      "note": "计划中"
+    },
+    {
+      "name": "AliasMap",
+      "fields": "canonical -> [variants]",
+      "source_evidence": null,
+      "note": "计划中；持久化于 SharedPreferences"
+    }
+  ],
+  "dependencies": [
+    "java.text.Normalizer",
+    "data-archive ComicEntry"
+  ],
+  "related_contracts": [
+    "contracts/tag-normalize.json",
+    "contracts/tag-merge-manual.json",
+    "contracts/library-collections.json"
+  ],
+  "related_wiki": []
+}

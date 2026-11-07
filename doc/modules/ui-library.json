@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0",
+  "id": "ui-library",
+  "responsibilities": "书架过滤、收藏、阅读历史与多选标签管理、疑似重复条目安全清理、本地数据导出与合并恢复。",
+  "source_paths": [
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryCollectionsStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryMaintenance.kt",
+    "app/src/main/java/com/melavonmen/an/data/LocalBackup.kt"
+    ,"app/src/main/java/com/melavonmen/an/data/LibraryMaintenance.kt"
+    ,"app/src/main/java/com/melavonmen/an/data/LocalBackup.kt"
+  ],
+  "entrypoints": [
+    "LibraryScreen(onOpenComic)"
+  ],
+  "public_symbols": [
+    "LibraryScreen",
+    "LibraryCollectionsStore.favorites",
+    "LibraryCollectionsStore.setFavorite",
+    "LibraryCollectionsStore.bookLists",
+    "LibraryCollectionsStore.createBookList",
+    "LibraryCollectionsStore.setBookListMembership",
+    "LibraryCollectionsStore.recordProgress",
+    "LibraryCollectionsStore.recent",
+    "LibraryCollectionsStore.removeBookList",
+    "LibraryMaintenance.duplicateGroups",
+    "LocalBackup.export/import"
+    ,"LibraryMaintenance.duplicateGroups"
+    ,"LocalBackup.export/import"
+  ],
+  "data_structures": [
+    {
+      "name": "ReadingHistoryEntry",
+      "fields": "progress:ReadingProgress,timestampMillis:Long",
+      "source_evidence": "app/src/main/java/com/melavonmen/an/data/LibraryCollectionsStore.kt",
+      "note": "时间倒序历史"
+    },
+    {
+      "name": "ComicBookList",
+      "fields": "name:String,comicIds:Set<String>",
+      "source_evidence": "app/src/main/java/com/melavonmen/an/data/LibraryCollectionsStore.kt",
+      "note": "命名书单"
+    }
+  ],
+  "dependencies": [
+    "data-archive LibraryRepository",
+    "data-archive ProgressStore",
+    "data-archive BookmarkStore",
+    "LibraryCollectionsStore",
+    "data-tags ComicUserTagStore"
+  ],
+  "related_contracts": [
+    "contracts/library-collections.json",
+    "contracts/reading-progress.json",
+    "contracts/local-reader-t0-t5.json"
+  ],
+  "related_wiki": []
+}

@@ -1,0 +1,30 @@
+{
+  "id": "ui-startup-tags-1.0.2",
+  "status": "implemented",
+  "scope": [
+    "启动恢复/扫描期间先展示加载界面",
+    "题材标签区域支持展开与折叠",
+    "标签筛选结果卡加载封面",
+    "APK 版本升为 1.0.2"
+  ],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/MainActivity.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/build.gradle.kts"
+  ],
+  "validation_commands": [
+    ".\\gradlew.bat :app:assembleDebug",
+    "adb install -r app/build/outputs/apk/debug/app-debug.apk",
+    "adb shell dumpsys activity activities",
+    "adb logcat -d -t 800 AndroidRuntime:E '*:S'",
+    "Parse all doc/**/*.json with PowerShell ConvertFrom-Json"
+  ],
+  "validation_results": [
+    "BUILD SUCCESSFUL",
+    "APK installed successfully and MainActivity is top resumed",
+    "No AndroidRuntime errors in the captured logcat window",
+    "All doc JSON parses"
+  ],
+  "unverified": ["手势注入被设备拒绝（SecurityException: INJECT_EVENTS）；未能实机点按折叠区域或验证封面渲染", "Unit tests not run"],
+  "sync_status": "implemented"
+}

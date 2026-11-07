@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "id": "nested-chapter-archive",
+  "status": "implemented",
+  "title": "嵌套章节 ZIP 只读读取合同",
+  "requirements": ["R44"],
+  "input_schema": "外层已支持的只读归档；其文件条目中一个或多个 .zip/.cbz 子归档，每个子归档代表一话",
+  "output_schema": "ChapterRef(name, nestedArchiveEntryPath, pageEntryPaths);页面路径来自当前已打开子归档",
+  "preconditions": [
+    "外层归档扫描已经取得 SAF 读取授权",
+    "一个子归档最多 64 MiB，且为未加密 ZIP/CBZ",
+    "子归档只读取一层，不递归解析孙级归档"
+  ],
+  "postconditions": [
+    "书架扫描只登记子归档名称和外层 entry path，不读取每个内层 ZIP 的完整内容",
+    "Reader 进入某章时才加载其内层页面目录和页面；章节切换/退出后释放当前内层归档",
+    "内层 ZIP 页面按需从内存 seekable channel 解码；不创建归档或漫画页临时文件",
+    "未嵌套归档沿用现有章节解析结果"
+  ],
+  "invariants": [
+    "默认扫描外层含数百章的 ZIP 时不把全部子归档载入内存",
+    "任意时刻每个 Reader 最多保留一个内层 ZIP 归档字节数组",
+    "超过大小限制、加密或损坏的章节在打开时显示明确错误，不影响其他章节"
+  ],
+  "errors": [
+    "ArchiveFormatException: 子章节不是可读 ZIP/CBZ、已加密、损坏或超过 64 MiB",
+    "EntryNotFound: 内层页面或外层章节条目缺失"
+  ],
+  "acceptance_tests": [
+    "外层 ZIP 内含 cover.jpg 和多个 chapterNNN.zip 时只建立对应章节记录，外层扫描不逐话解包",
+    "打开内层 ZIP 后图片按自然顺序列出，readEntryBytes 可返回指定页字节",
+    "切换章节或关闭 Reader 后当前内层归档被释放",
+    "损坏/加密/超过 64 MiB 的子 ZIP 返回可理解错误，普通外层归档仍可扫描",
+    "无嵌套子归档时原 7z/ZIP/RAR 章节行为与测试不变",
+    "LibraryIndexStore 重启后保留内层章节路径，首次进入章节再解析页目录"
+  ],
+  "version": "1.0"
+}

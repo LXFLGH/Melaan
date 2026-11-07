@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0",
+  "id": "archive-stream",
+  "status": "implemented",
+  "title": "7z/ZIP/RAR 流式读取合同",
+  "input_schema": "content:// uri（SAF 树授权）；支持 .7z、.zip/.cbz 与单卷未加密 .rar/.cbr；外层归档可含 ZIP/CBZ 章节子归档",
+  "output_schema": "ComicEntry 元数据 + 按需条目字节流",
+  "preconditions": [
+    "7z 文件只读打开；任何路径不得写/改名/删除用户 7z 文件",
+    "metadata.json 与 cover 可位于包内任意位置；两者均可缺失",
+    "CBZ 文件通过 ZIP 后端只读打开；RAR/CBR 通过 Junrar 只读解码。",
+    "单行本：根级编号图片；连载：话子文件夹（按名称自然序）"
+  ],
+  "postconditions": [
+    "readEntryBytes 只返回受支持归档中目标条目的解压字节，不产生磁盘解压物",
+    "RAR 页面按需重开 SAF 输入流并重扫归档；加密、多卷、损坏 RAR 给出明确警告",
+    "外层扫描登记子归档路径；当前章节的内层 ZIP/CBZ 页面在 Reader 中按需解析",
+    "metadata 缺失或不可解析时可按归档名创建条目；封面缺失时 coverEntryName 为空并由 UI 显示占位图",
+    "Bitmap 解码在内存完成并按 inSampleSize 降采样",
+    "持久化仅限解析出的标签、封面图字节与已批准的最小书架索引；漫画页面不缓存"
+  ],
+  "invariants": [
+    "无漫画页/归档内容解压到外部存储或缓存目录的调用（封面专用缓存除外）",
+    "7z、ZIP 与 RAR 条目路径统一使用正斜杠；7z 顺序读取同实例可复用解压状态",
+    "扩展名与能力一致：.cbz 解读为 ZIP；单卷未加密 .rar/.cbr 可读，其他变体给出明确原因。"
+  ],
+  "planned_interfaces": [
+    {
+      "qualified_name": "ArchiveReader.open",
+      "parameters": [
+        {
+          "name": "uri",
+          "type": "android.net.Uri"
+        }
+      ],
+      "return_type": "ArchiveReader",
+      "errors": [
+        "ArchiveFormatException",
+        "IOException"
+      ],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "ArchiveReader.listEntries",
+      "parameters": [],
+      "return_type": "List<String>",
+      "errors": [
+        "IOException"
+      ],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "ArchiveReader.readEntryBytes",
+      "parameters": [
+        {
+          "name": "entryPath",
+          "type": "String"
+        }
+      ],
+      "return_type": "ByteArray",
+      "errors": [
+        "EntryNotFound",
+        "IOException"
+      ],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "ArchiveReader.parseMetadata",
+      "parameters": [],
+      "return_type": "ComicMeta?",
+      "errors": [],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "ArchiveReader.resolveChapters",
+      "parameters": [],
+      "return_type": "List<ChapterRef>",
+      "errors": [],
+      "source_evidence": null
+    }
+  ],
+  "errors": [
+    "ArchiveFormatException: 非受支持格式、归档损坏或不支持的 RAR 变体",
+    "ArchiveFormatException: 内层 ZIP/CBZ 加密、损坏、不含漫画页或超过 64 MiB",
+    "EntryNotFound: 条目缺失",
+    "IOException: 通道读取失败",
+    "RAR/CBR 加密、多卷或损坏时通过 ScanWarning.skippedReason 告知。"
+  ],
+  "acceptance_tests": [
+    "单行本样例：resolveChapters 返回 1 章且页序为 001.webp..N.webp 自然序",
+    "连载样例：章节数=话子文件夹数，章序按名称自然升序",
+    "7z 与 ZIP 内容均可按 entryPath 读取，readEntryBytes 后不产生临时文件",
+    "缺少 metadata.json/meta.json 或 cover 时解析仍可建立条目/占位图并由 scan report 警告",
+    "readEntryBytes 后无新文件出现在任何可写目录（测试断言 filesDir 无新增）",
+    ".cbz 可进入 ZIP 后端并读取页面。",
+    "单卷未加密 .rar/.cbr 可列出章节和页并按需读图；加密、多卷格式有明确扫描警告。",
+    "RAR 页面读取不创建归档或漫画页临时文件；逐页重扫产生的延迟需在大归档上核验。",
+    "Android 12+ ImageDecoder 可解 AVIF，GIF 动画逐帧播放或从支持列表移除。",
+    "ArchiveReaderTest 覆盖 CBZ ZIP 按需读取；ArchiveCompatTest 覆盖 CBZ/RAR/CBR 扩展名分类。",
+    "嵌套 ZIP 章节在书架扫描时不展开，打开当前章节后页面按自然序解析和读取。",
+    "AVIF 使用 Android ImageDecoder；GIF 不作为漫画页识别。"
+  ],
+  "version": "1.3",
+  "sync_notes": "封面专用持久缓存与最小书架索引由 bugfix-cache-reader-1.0.1 记录；页面仍按需流式读取",
+  "actual_deviations": "API实况: ComicEntry 定义于 LibraryRepository.kt，ChapterRef 于 ArchiveReader.kt；MetadataParser 于 Metadata.kt",
+  "related_contracts": ["contracts/nested-chapter-archive.json"]
+}

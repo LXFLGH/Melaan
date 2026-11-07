@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "id": "tag-normalize",
+  "status": "verified",
+  "title": "标签归一化与变体组合同",
+  "input_schema": "原始标签字符串（可含全角/大小写/空白/标点/繁体）",
+  "output_schema": "normKey:String；VariantGroup{normKey,variants:Map<String,Int>}",
+  "preconditions": [
+    "繁简映射表为 854 字常用子集（提取自 tagclean/comic-tag-auditor.html，生成物 data/TagNormalizer.kt）"
+  ],
+  "postconditions": [
+    "同一归一键的变体在 variantGroups 中聚为一组（仅含 ≥2 个不同原文形态）",
+    "与网页版 comic-tag-auditor.html 对同一输入给出相同 normKey"
+  ],
+  "invariants": [
+    "normKey 管道固定：NFKC → lowercase → 繁→简逐字映射 → 去全部空白(含 U+3000) → 去标点集",
+    "原文标签永不被归一化结果覆盖（原文只读保留，合并须经 tag-merge-manual）"
+  ],
+  "planned_interfaces": [
+    {
+      "qualified_name": "TagNormalizer.normKey",
+      "parameters": [
+        {
+          "name": "s",
+          "type": "String"
+        }
+      ],
+      "return_type": "String",
+      "errors": [],
+      "source_evidence": null
+    },
+    {
+      "qualified_name": "TagNormalizer.variantGroups",
+      "parameters": [
+        {
+          "name": "tagCounts",
+          "type": "Map<String,Int>"
+        }
+      ],
+      "return_type": "List<VariantGroup>",
+      "errors": [],
+      "source_evidence": null
+    }
+  ],
+  "errors": [],
+  "acceptance_tests": [
+    "normKey(\"東方Project\") == normKey(\"东方Project\")",
+    "normKey(\"ＡＢＣ\") == normKey(\"ABC\") == normKey(\"abc\")",
+    "normKey(\"中文 \") == normKey(\"中文\")（尾空格）",
+    "variantGroups 对 {東方Project:1, 东方Project:1} 返回 1 组 2 变体；对 {科幻:3} 返回空"
+  ],
+  "version": "1.0-proposed",
+  "sync_notes": "implemented+verified: TagNormalizer.kt(854字T2S表脚本提取)；TagNormalizerTest 7/7 通过",
+  "actual_deviations": "API实况: VariantGroup 定义于 TagNormalizer.kt（非独立文件）"
+}

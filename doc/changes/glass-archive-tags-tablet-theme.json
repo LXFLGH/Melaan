@@ -1,0 +1,65 @@
+{
+  "id": "glass-archive-tags-tablet-theme",
+  "status": "implemented",
+  "scope": [
+    "修复各页 iOS 26 高透微磨砂玻璃表面的共享背景取样与覆盖",
+    "原生 Compose 平板纵横屏/窗口尺寸自适应",
+    "SAF 递归扫描 7z/ZIP 并容错提示缺失 metadata/cover",
+    "为作品新增并持久化用户自定义 tag，供筛选/搜索使用",
+    "加入白昼、夜间、跟随系统三种应用主题",
+    "完成后升版至 1.0.4 并覆盖安装"
+  ],
+  "approved_contracts": [
+    "requirements:R21-R25",
+    "contracts/archive-stream",
+    "contracts/library-scan-report",
+    "decisions/adaptive-ui-and-import"
+  ],
+  "changed_sources": [
+    "app/src/main/java/com/melavonmen/an/ui/Glass.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ComicTagEditor.kt",
+    "app/src/main/java/com/melavonmen/an/ui/theme/Theme.kt",
+    "app/src/main/java/com/melavonmen/an/ui/theme/Color.kt",
+    "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryScanner.kt",
+    "app/src/main/java/com/melavonmen/an/data/Metadata.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryIndexStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/ComicUserTagStore.kt",
+    "app/build.gradle.kts"
+  ],
+  "changed_doc": [
+    "doc/requirements.json",
+    "doc/modules/ui-shell.json",
+    "doc/modules/data-archive.json",
+    "doc/modules/data-tags.json",
+    "doc/contracts/archive-stream.json",
+    "doc/contracts/library-scan-report.json",
+    "doc/decisions/adaptive-ui-and-import.json",
+    "doc/changes/glass-archive-tags-tablet-theme.json",
+    "doc/index.json",
+    "doc/verification/index.json",
+    "app/build.gradle.kts"
+  ],
+  "validation_commands": [
+    ".\\gradlew.bat :app:assembleDebug",
+    "adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
+    "adb -s connected-device shell dumpsys package com.melavonmen.an | Select-String 'versionCode=|versionName='",
+    "PowerShell ConvertFrom-Json over all doc/**/*.json"
+  ],
+  "validation_results": [
+    "BUILD SUCCESSFUL; Kotlin compilation and debug APK packaging passed",
+    "ADB install -r returned Success; installed package reports versionName=1.0.4 and versionCode=5",
+    "All doc JSON files parsed"
+  ],
+  "tests_not_run": ["Unit tests and device interaction tests were not run"],
+  "unverified": ["Real-device glass appearance, portrait/landscape layouts, scan warnings, tag persistence, and theme behavior have not been manually exercised"],
+  "sync_status": "implemented"
+}

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reader_seek_page">跳转页面</string>
+    <string name="reader_toggle_double_page">%1$s横屏双页</string>
+    <string name="reader_reset_overrides">本书恢复跟随全局设置</string>
+    <string name="reader_brightness">屏幕亮度</string>
+    <string name="reader_double_page_global">横屏双页</string>
+    <string name="reader_switch_scroll_mode">切换：左右翻页</string>
+    <string name="reader_switch_page_mode">切换：上下滚动</string>
+    <string name="reader_switch_ltr">切换：从左向右</string>
+    <string name="reader_switch_rtl">切换：从右向左</string>
+    <string name="reader_switch_fit">切换：整页适配</string>
+    <string name="reader_switch_width">切换：适宽</string>
+    <string name="reader_enabled">开启</string>
+    <string name="reader_disabled">关闭</string>
+</resources>

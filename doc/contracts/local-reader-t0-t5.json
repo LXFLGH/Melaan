@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "id": "local-reader-t0-t5",
+  "status": "implemented",
+  "title": "本地阅读器 T0–T5 功能合同",
+  "requirements": ["R38", "R39", "R40", "R41", "R42", "R43"],
+  "features": {
+    "T0-rar-cbr": {
+      "input": "SAF URI for .rar/.cbr archive",
+      "output": "read-only archive entries using the existing ArchiveReader chapter/page model",
+      "acceptance": ["single-volume unencrypted RAR/CBR pages open", "corrupt, encrypted, unsupported RAR variants report a reason", "no archive/page extraction to disk"],
+      "constraints": ["use Junrar for read-only extraction; the project must not implement RAR-compatible archive creation", "single-volume unencrypted RAR/CBR is the initial supported scope", "reopen and rescan the SAF stream for requested pages; do not create temporary archive or page files", "ZIP/CBZ and 7z behavior remains unchanged"]
+    },
+    "T1-bookmarks": {
+      "input": "comicId, chapterIndex, pageIndex, optional title",
+      "output": "multiple persistent bookmark entries per comic, newest first",
+      "operations": ["save current position", "list", "jump", "delete"],
+      "constraints": ["bookmarks are app-local", "removing a comic removes its bookmarks"]
+    },
+    "T2-auto-next": {
+      "input": "end-of-chapter event and global reader preference",
+      "output": "opens next chapter at page zero only when enabled and a next chapter exists",
+      "constraints": ["default disabled", "last chapter remains at its last page"]
+    },
+    "T3-duplicates": {
+      "input": "indexed comic title and archive size",
+      "output": "user-confirmed duplicate candidates grouped by case-insensitive title plus exact byte size",
+      "constraints": ["never delete source archive", "no automatic removal", "removal only drops local library references"]
+    },
+    "T4-backup": {
+      "input": "versioned JSON backup selected via SAF",
+      "output": "export/import of app-owned progress, bookmarks, reader settings, tags, favorites, booklists, and history",
+      "constraints": ["merge-only import", "validate schema/version and all entries before applying", "exclude comics, SAF grants, derived cover cache, and device-only UI state", "restore keyed user state only when comic IDs remain stable; SAF URI identity may differ on another device", "invalid input leaves current state unchanged"]
+    },
+    "T5-webtoon": {
+      "input": "vertical scroll mode and current chapter page list",
+      "output": "lazy page rendering with bounded decoded image residency and restoration to saved page",
+      "constraints": ["preserve existing single/RTL pagination modes", "restore the saved page on comic/chapter entry without fighting live scroll updates", "comic pages remain memory-only"]
+    }
+  },
+  "error_behavior": ["unsupported archive details are surfaced to the user", "backup parse errors do not mutate stores", "duplicate cleanup never removes source documents"],
+  "verification": ["unit tests for archive classification, bookmark persistence, merge validation, duplicate grouping, and scroll-position mapping", "debug APK build", "manual device check for chapter transition and long-strip memory behavior"],
+  "version": "1.0"
+}

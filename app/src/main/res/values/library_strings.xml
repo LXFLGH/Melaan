@@ -1,0 +1,24 @@
+<resources>
+    <string name="library_favorite_filter">收藏</string>
+    <string name="library_favorite_filter_on">★ 收藏中</string>
+    <string name="library_history">阅读历史</string>
+    <string name="library_return_shelf">返回书架</string>
+    <string name="library_multi_select">多选</string>
+    <string name="library_cancel_select">取消多选</string>
+    <string name="library_selected_count">已选 %1$d</string>
+    <string name="library_batch_add_tag">批量加标签</string>
+    <string name="library_batch_remove_tag">批量移除标签</string>
+    <string name="library_batch_remove_title">批量移除用户标签</string>
+    <string name="library_batch_add_title">批量添加用户标签</string>
+    <string name="library_tag_label">标签</string>
+    <string name="library_confirm">确认</string>
+    <string name="library_cancel">取消</string>
+    <string name="library_history_entry">%1$s · 第%2$d话 · 第%3$d页</string>
+    <string name="library_history_timestamp">阅读时间：%1$s</string>
+    <string name="library_booklists">书单</string>
+    <string name="library_all_books">全部作品</string>
+    <string name="library_create_booklist">新建书单</string>
+    <string name="library_booklist_name">书单名称</string>
+    <string name="library_add_to_booklist">加入书单</string>
+    <string name="library_remove_from_booklist">移出书单</string>
+</resources>

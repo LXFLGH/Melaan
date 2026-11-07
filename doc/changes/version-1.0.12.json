@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0",
+  "id": "version-1.0.12",
+  "status": "verified",
+  "baseline_revision": "workspace-2026-11-07-no-git",
+  "target_contracts": [],
+  "requirements": ["R46"],
+  "affected_source_paths": ["app/build.gradle.kts"],
+  "scope": [
+    "APK versionName 升级为 1.0.12",
+    "versionCode 从 12 单调递增到 13",
+    "不改变功能、数据格式、导航行为或素材"
+  ],
+  "decisions": [
+    "沿用当前 1.0.11/versionCode 12 的导航性能实现，仅递增应用版本；不重建 release 版本号历史。"
+  ],
+  "planned_doc_changes": [
+    "requirements.json 增加 R46 与当前版本验收条目",
+    "新增本变更单",
+    "index.json 增加变更清单和任务路由",
+    "verification/index.json 增加 V15"
+  ],
+  "implementation_changes": [
+    "app/build.gradle.kts 第 16-17 行改为 versionCode = 13、versionName = \"1.0.12\"。"
+  ],
+  "observed_code_changes": [
+    "app/build.gradle.kts: versionCode = 13; versionName = \"1.0.12\"",
+    "app/build/outputs/apk/debug/output-metadata.json: versionCode=13, versionName=1.0.12, outputFile=app-debug.apk",
+    "设备 com.melavonmen.an: versionCode=13, versionName=1.0.12, lastUpdateTime=2026-11-07 19:05:04"
+  ],
+  "verification": [
+    {
+      "command": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' ./gradlew -p . :app:testDebugUnitTest :app:assembleDebug --console=plain",
+      "result": "BUILD SUCCESSFUL in 18s; 12 XML reports, 62 tests, 0 failures, 0 errors, 0 skipped"
+    },
+    {
+      "command": "adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
+      "result": "Performing Streamed Install; Success"
+    },
+    {
+      "command": "adb -s connected-device shell dumpsys package com.melavonmen.an",
+      "result": "versionCode=13 minSdk=31 targetSdk=37; versionName=1.0.12; lastUpdateTime=2026-11-07 19:05:04"
+    },
+    {
+      "command": "sha256sum app/build/outputs/apk/debug/app-debug.apk",
+      "result": "24b83043e442cb7c55850127c019db55b4beae60ece649ad46dc38d397777e7c"
+    },
+    {
+      "command": "melavonmen validate_index.py + validate_schema.py",
+      "result": "both ok=true, 0 errors"
+    }
+  ],
+  "apk_sha256": "24b83043e442cb7c55850127c019db55b4beae60ece649ad46dc38d397777e7c",
+  "changed_doc": [
+    "doc/requirements.json",
+    "doc/index.json",
+    "doc/changes/version-1.0.12.json",
+    "doc/verification/index.json"
+  ],
+  "changed_wiki": [],
+  "unverified": [],
+  "warnings": [
+    "项目无 .git，无法运行 detect_doc_drift；版本事实已由 Gradle 配置、APK output-metadata 与设备 dumpsys 三方核对。"
+  ],
+  "sync_status": "verified; Gradle, APK metadata, ADB install and device package version agree"
+}

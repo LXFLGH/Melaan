@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "id": "ui-tagclean",
+  "responsibilities": "标签页双段（筛选/清洗）：多选取交集筛选（含阅读状态单选叠加）；题材标签区可折叠；筛选结果展示封面；疑似变体组列表；手动合并流程 UI（勾选变体→选规范名→确认对话框→应用/撤销）；标签频次列表与搜索",
+  "source_paths": [
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagCleanDialog.kt"
+  ],
+  "entrypoints": ["TagsScreen", "MergeConfirmDialog"],
+  "public_symbols": ["TagsScreen", "MergeConfirmDialog"],
+  "data_structures": [{"name": "MergeDraft", "fields": "selectedVariants:Set<String>,canonical:String", "source_evidence": null, "note": "计划中；确认前仅为草稿状态"}],
+  "dependencies": ["data-tags", "ui-shell"],
+  "related_contracts": ["contracts/tag-normalize.json", "contracts/tag-merge-manual.json"],
+  "related_wiki": []
+}

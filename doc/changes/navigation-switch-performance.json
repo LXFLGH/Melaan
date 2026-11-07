@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "id": "navigation-switch-performance",
+  "status": "implemented",
+  "baseline_revision": "workspace-2026-11-07-no-git",
+  "target_contracts": ["navigation-switch-performance", "reading-progress"],
+  "requirements": ["R45"],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/MainActivity.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibrarySnapshot.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/ProgressStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LocalBackup.kt",
+    "app/src/main/java/com/melavonmen/an/ui/CoverImageCache.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt"
+  ],
+  "decisions": ["decision-navigation-switch-performance"],
+  "root_causes": [
+    "Shell.kt:193-216 只组合选中 Tab，离开即销毁页面 remember/LaunchedEffect/LruCache；SaveableStateHolder 只保留 saveable 状态。",
+    "HomeScreen.kt:92-100、LibraryScreen.kt:203-214、TagsScreen.kt:110-118 每次进入均逐漫画调用 ProgressStore.load，重复 SharedPreferences 查询与 JSON 解析。",
+    "TagsScreen.kt:119-125 在主线程组合阶段同步 TagCatalog.build、标签计数与 TagNormalizer.variantGroups；LibraryScreen.kt:217-227 和 HomeScreen.kt:106-109 也有主线程派生统计。",
+    "LibraryScreen.kt:201 的 16 项封面 LRU 随 Tab 销毁；首页、标签和详情各自解码，没有跨页共享 Bitmap 缓存。"
+  ],
+  "planned_doc_changes": [
+    "requirements.json 增加 R45",
+    "新增 navigation-switch-performance 合同、决策与本变更单",
+    "modules/ui-shell.json 与 modules/data-archive.json 登记新职责和源码",
+    "index.json 与 verification/index.json 增加任务及验证路由"
+  ],
+  "implementation_changes": [
+    "新增 LibrarySnapshot：进程内共享漫画列表、全量阅读进度和最近阅读；读取用 Mutex 合并，generation 防止扫描/写入竞态写入旧快照。",
+    "MainActivity 初始化/扫描后预载快照；首页、书架、标签、设置统一从快照初始化/加载，删除旧 retainedLibraryData/retainedTagScreenData。",
+    "ProgressStore.save/remove/init、LibraryRepository.init/scan/addUserTag/removeUserTag、LocalBackup.import 均调用 LibrarySnapshot.invalidate()。",
+    "新增 CoverImageCache：按 comicId+目标宽共享 32 MiB 解码 Bitmap LRU，16 个分片 Mutex 防止同 key 并发重复解码；首页、书架、标签、详情统一入口，删除/重扫时清理。",
+    "首页 chips/filter、书架 chips、标签 stats/tagCounts/variantGroups 改到 Dispatchers.Default；筛选语义和公开 Composable 签名不变。"
+  ],
+  "observed_code_changes": [
+    "LibrarySnapshot.kt 71 行；CoverImageCache.kt 71 行；MainActivity/ProgressStore/LibraryRepository/LocalBackup 增加预载与失效调用。",
+    "HomeScreen.kt 802 行、LibraryScreen.kt 663 行、TagsScreen.kt 543 行、DetailScreen.kt 601 行、SettingsScreen.kt 753 行、Shell.kt 260 行。",
+    "静态检查：LibraryRepository.readCover 仅剩 CoverImageCache.kt 一个主入口；旧 retained* 和页面级 decodeCover/loadCover 已移除。"
+  ],
+  "verification": [
+    {
+      "command": "JAVA_HOME=... ./gradlew :app:assembleDebug --console=plain",
+      "result": "优化前基线 BUILD SUCCESSFUL；54 tasks up-to-date"
+    },
+    {
+      "command": "JAVA_HOME=... ./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain",
+      "result": "BUILD SUCCESSFUL in 3s; 12 XML reports, 62 tests, 0 failures, 0 errors, 0 skipped"
+    },
+    {
+      "command": "adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
+      "result": "Performing Streamed Install; Success; versionCode=12 versionName=1.0.11; lastUpdateTime=2026-11-07 18:56:31"
+    },
+    {
+      "command": "sha256sum app/build/outputs/apk/debug/app-debug.apk",
+      "result": "705e7108e6fe29822169c407bbaf26e665cd409a266a52278e3a359125e81ba4"
+    },
+    {
+      "command": "melavonmen validate_index.py + validate_schema.py",
+      "result": "both ok=true, 0 errors"
+    },
+    {
+      "command": "adb shell input keyevent KEYCODE_WAKEUP",
+      "result": "设备拒绝 INJECT_EVENTS；无法自动执行导航点击和采集优化前后帧数据"
+    },
+    {
+      "command": "首方 app/src 下 kt/kts/xml 物理行统计",
+      "result": "57 files, 9677 LOC；不触发 >20000 LOC 自动全量 Wiki 门槛"
+    }
+  ],
+  "ruled_out": [
+    "封面原始字节读取和 BitmapFactory 解码原本已在 Dispatchers.IO，不把它们误报为主线程磁盘解码；问题是页面销毁后的重复工作。",
+    "TagAliasStore.canonicalOf 是 HashMap 查询（TagAliasStore.kt:35），不是 NFKC 热点；NFKC 热点位于 TagCatalog.build 与 variantGroups。",
+    "未采用隐藏常驻四 Tab：可保留组合状态，但会同时持有玻璃渲染资源并首次并发加载所有页面，违背本次低内存交换目标。"
+  ],
+  "changed_doc": [
+    "doc/requirements.json",
+    "doc/index.json",
+    "doc/modules/ui-shell.json",
+    "doc/modules/data-archive.json",
+    "doc/contracts/navigation-switch-performance.json",
+    "doc/decisions/navigation-switch-performance.json",
+    "doc/changes/navigation-switch-performance.json",
+    "doc/verification/index.json"
+  ],
+  "changed_wiki": [],
+  "unverified": [
+    "优化后的实机帧时间、页面内容与点击行为尚未验证；设备系统拒绝 ADB 输入注入。",
+    "未采集优化前后 gfxinfo 对照；用户需手动依次点击四 Tab 验收。",
+    "项目无 .git，detect_doc_drift 不可用；本次同步依据实际文件清单与验证命令。"
+  ],
+  "sync_status": "implemented; source, unit tests, APK install and docs synchronized; runtime frame verification remains unverified"
+}

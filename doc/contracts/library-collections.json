@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "id": "library-collections",
+  "status": "implemented",
+  "title": "书架收藏、书单、历史和批量标签合同",
+  "requirements": [
+    "R35",
+    "R36",
+    "R37"
+  ],
+  "input_schema": "书架漫画稳定ID + 收藏/书单成员变更 / 阅读进度 / 多选作品ID与标签名",
+  "output_schema": "持久收藏状态、用户书单、最多100本作品各自的最近阅读位置（时间倒序）和用户标签更新",
+  "preconditions": [
+    "漫画ID稳定且来自归档 URI",
+    "批量标签仅修改应用本地用户标签",
+    "书单名称去空白后非空；成员只引用本地漫画稳定ID"
+  ],
+  "postconditions": [
+    "收藏/历史跨重启恢复",
+    "每作品只保留最新阅读位置与时间，最多保留最近100本作品",
+    "批量标签添加或移除仅触及选择集",
+    "书单创建与成员增删跨重启恢复，书单过滤只显示成员",
+    "移出书架的作品从收藏、历史和用户书单中清理本地引用。"
+  ],
+  "invariants": [
+    "不改写漫画归档",
+    "history 以稳定 comicId 为键，每本最多保留一条最近位置，历史最多100本",
+    "书单与收藏只存漫画ID，不写入归档"
+  ],
+  "errors": [
+    "空白标签拒绝保存",
+    "删除漫画时可丢弃其本地收藏/历史"
+  ],
+  "acceptance_tests": [
+    "收藏和历史在进程重启后仍在；历史按时间倒序并可继续阅读。",
+    "批量标签操作对所选作品生效，重启恢复，未选作品不受影响。",
+    "连续翻页只更新该作品的一条最近阅读记录，不无限追加。",
+    "Android instrumentation: favorite toggles persist and repeated progress updates replace the same comic history row.",
+    "可创建书单并加入/移除选中作品；筛选只显示书单成员且重启后成员仍在。",
+    "LibraryCollectionsStoreTest 覆盖收藏、时间线去重与书单成员持久化。",
+    "LibraryRepository.removeComic 清理收藏、历史和书单成员引用。"
+  ],
+  "version": "1.0"
+}

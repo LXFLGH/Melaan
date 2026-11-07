@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "id": "library-scan-report",
+  "status": "implemented",
+  "title": "SAF 归档扫描结果",
+  "operation": "LibraryRepository.scan(treeUri)",
+  "result": {
+    "archiveCount": "扫描到的 7z、ZIP/CBZ、RAR/CBR 文件数",
+    "importedCount": "已建立可阅读书架条目的归档数",
+    "warnings": "逐归档的 ScanWarning 列表（仅名称，不包含本地路径）"
+  },
+  "warning_fields": {
+    "displayName": "归档显示名",
+    "missingMetadata": "metadata.json 缺失或不可解析；条目用文件名作为标题",
+    "missingCover": "未发现 cover 图片；作品仍保留并使用占位封面",
+    "skippedReason": "损坏/无漫画页，或加密/多卷等 RAR/CBR 当前不支持的原因"
+  },
+  "invariants": [
+    "从 SAF 树根递归发现任意深度子文件夹内的 .7z、.zip/.cbz 与 .rar/.cbr；重复 URI 只扫描一次",
+    "扫描继续处理其他归档；结果报告聚合缺失文件与跳过信息",
+    "归档只读，扫描和阅读不将漫画页或归档内容落盘",
+    "扫描遇到不可读 RAR/CBR 时产生包含文件名和明确原因的 skippedReason 警告，不静默跳过。"
+  ]
+}

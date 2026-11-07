@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "id": "ui-shell",
+  "responsibilities": "MainActivity 启动加载状态与初始化、四 Tab 紧凑/中等/展开导航、白昼/夜间/跟随系统主题、可选应用背景图、首页（继续阅读/搜索/统计/最近导入）、各页面共享取样的 Liquid Glass 卡片、作品详情（用户标签且不显示本地路径）、设置页（扫描报告/背景图/阅读选项）、原生平板纵横屏适配",
+  "source_paths": [
+    "app/src/main/java/com/melavonmen/an/MainActivity.kt",
+    "app/src/main/java/com/melavonmen/an/ui/theme/Color.kt",
+    "app/src/main/java/com/melavonmen/an/ui/theme/Theme.kt",
+    "app/src/main/java/com/melavonmen/an/ui/theme/Type.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/TagsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ComicTagEditor.kt",
+    "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/CoverImageCache.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Glass.kt"
+  ],
+  "entrypoints": ["MainActivity.onCreate", "MelaanApp(Shell)"],
+  "public_symbols": ["MelaanApp", "HomeScreen", "LibraryScreen", "TagsScreen", "DetailScreen", "ComicTagEditor", "SettingsScreen", "rememberCoverBitmap", "CoverImageCache", "GlassSurface"],
+  "data_structures": [{"name": "AppNavState", "fields": "tab,detailComicId,readerComicId", "source_evidence": null, "note": "计划中"}],
+  "dependencies": ["data-archive", "data-tags", "androidx.compose.material3"],
+  "related_contracts": ["contracts/reading-progress.json", "contracts/navigation-switch-performance.json"],
+  "related_wiki": []
+}
