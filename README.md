@@ -11,7 +11,7 @@
 
 Melaan 是一款面向 **本地漫画收藏** 的 Android 阅读器。选择设备上的漫画目录，扫描归档、整理书架，然后离线阅读；漫画内容由你自行提供，应用不内置在线漫画源。
 
-[下载最新 APK](https://github.com/LXFLGH/Melaan/releases/tag/lastRelease) · [查看源码](https://github.com/LXFLGH/Melaan) · [反馈问题](https://github.com/LXFLGH/Melaan/issues)
+[下载当前 APK](https://raw.githubusercontent.com/LXFLGH/Melaan/main/artifacts/Melaan-debug.apk) · [查看 Releases](https://github.com/LXFLGH/Melaan/releases/tag/lastRelease) · [查看源码](https://github.com/LXFLGH/Melaan) · [反馈问题](https://github.com/LXFLGH/Melaan/issues)
 
 ## 应用截图
 
@@ -48,7 +48,7 @@ Melaan 是一款面向 **本地漫画收藏** 的 Android 阅读器。选择设�
 
 ## 开始使用
 
-1. 从 [GitHub Releases](https://github.com/LXFLGH/Melaan/releases/tag/lastRelease) 下载 `app-debug.apk` 并安装。需要 Android 12（API 31）或更新版本。
+1. 下载上方的当前 APK 并安装；也可以在 [GitHub Releases](https://github.com/LXFLGH/Melaan/releases/tag/lastRelease) 查看版本记录。需要 Android 12（API 31）或更新版本。
 2. 打开应用，进入 **我的 → 扫描管理**，选择漫画库目录并授予读取权限。
 3. 返回书架或首页打开作品；阅读进度和书签会由应用本地保存。
 
