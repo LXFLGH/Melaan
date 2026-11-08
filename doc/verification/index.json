@@ -205,6 +205,8 @@
     "Issue #2：验证 EPUB2 NCX 与 EPUB3 nav 目录、WebView 沙箱脚本限制、图文混排、编码路径、相对 CSS/图片、复杂长章节",
     "Issue #2：验证 PDF 双指缩放/平移、适宽、横屏双页、缩略图；Android 15+ 的文字搜索；Android 12-14 的降级提示",
     "Issue #2：验证书库元数据修改不触碰原始文件；作者/系列/格式排序；SAF 修改时间变化时增量重扫",
-    "Issue #2：本地 API37 Gradle 构建、最新 CI Debug APK 下载与设备安装、GitHub Release 原 APK 替换需人工验收"
+    "Issue #2：本地 API37 Gradle 构建、最新 CI Debug APK 下载与设备安装、GitHub Release 原 APK 替换需人工验收",
+    "Issue #2：验证移动/重命名文件后丢失记录出现，通过书架重新关联并恢复进度/标签/书单/书签；不会自动猜测或删除用户文件",
+    "Issue #2：验证旧版备份缺少新增元数据/电子书偏好存储时仍能导入；新导出文件包含这些存储且不会覆盖现有值"
   ]
 }
