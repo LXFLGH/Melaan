@@ -161,6 +161,12 @@ fun DocumentReaderScreen(
                     entry = entry,
                     chapter = chapter,
                     restoreScrollUnits = restoreScrollUnits,
+                    onChapterChange = { target ->
+                        chapter = target
+                        page = 0
+                        scrollUnits = 0
+                        restoreScrollUnits = 0
+                    },
                     onProgressChange = { scrollUnits = it },
                 )
                 MediaKind.TXT -> TextContent(
@@ -362,11 +368,14 @@ private fun EpubContent(
     entry: ComicEntry,
     chapter: Int,
     restoreScrollUnits: Int,
+    onChapterChange: (Int) -> Unit,
     onProgressChange: (Int) -> Unit,
 ) {
     val context = LocalContext.current
     val chapterPath = entry.chapters.getOrNull(chapter)?.pageEntryPaths?.firstOrNull().orEmpty()
-    val baseUrl = remember(chapterPath) { "https://melaan.epub/$chapterPath" }
+    val baseUrl = remember(chapterPath) {
+        "https://melaan.epub/" + chapterPath.split('/').joinToString("/") { Uri.encode(it) }
+    }
     var retry by remember(entry.id, chapter) { mutableIntStateOf(0) }
     val htmlResult by produceState<Result<String>?>(initialValue = null, entry.id, chapter, retry) {
         value = runCatching {
@@ -401,7 +410,21 @@ private fun EpubContent(
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     // Only book-local navigation is allowed; never navigate to an external URL.
-                    return !isSafeEpubUri(request.url)
+                    val uri = request.url
+                    if (!isSafeEpubUri(uri)) return true
+                    if (request.isForMainFrame) {
+                        val targetPath = uri.path?.trimStart('/')
+                        val targetIndex = entry.chapters.indexOfFirst {
+                            it.pageEntryPaths.firstOrNull() == targetPath
+                        }
+                        if (targetIndex >= 0 && targetIndex != chapter) {
+                            onChapterChange(targetIndex)
+                            return true
+                        }
+                        // Unknown spine targets may not silently desynchronize the chapter index.
+                        if (targetIndex < 0 && targetPath != chapterPath) return true
+                    }
+                    return false
                 }
 
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
