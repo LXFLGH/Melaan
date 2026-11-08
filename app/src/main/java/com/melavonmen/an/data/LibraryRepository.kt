@@ -66,6 +66,7 @@ object LibraryRepository {
         val store = LibraryIndexStore(context)
         val tagStore = ComicUserTagStore(context)
         BookmarkStore.init(context)
+        UserBookMetadataStore.init(context)
         val restored = runCatching { store.load() }.getOrDefault(emptyList())
         synchronized(lock) {
             indexStore = store
@@ -180,6 +181,7 @@ object LibraryRepository {
         }
         if (removed) {
             userTags?.remove(id)
+            UserBookMetadataStore.remove(id)
             ProgressStore.remove(id)
             BookmarkStore.removeComic(id)
             appContext?.let { LibraryCollectionsStore(it).removeComic(id) }
@@ -536,7 +538,7 @@ object LibraryRepository {
     private fun withUserTags(entry: ComicEntry): ComicEntry {
         val localTags = userTags?.get(entry.id).orEmpty()
         val combined = mergeTags(entry.tags, localTags)
-        return if (combined == entry.tags) entry else entry.copy(tags = combined)
+        return UserBookMetadataStore.apply(if (combined == entry.tags) entry else entry.copy(tags = combined))
     }
 
     private fun mergeTags(base: List<String>, additions: List<String>): List<String> {
