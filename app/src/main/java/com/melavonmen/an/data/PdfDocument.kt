@@ -21,6 +21,24 @@ class PdfDocumentSession internal constructor(
 }
 
 internal object PdfPages {
+    /** Native PDF text search is available on Android 15+ for searchable PDFs. */
+    fun search(session: PdfDocumentSession, query: String, limit: Int = 80): List<Int> {
+        if (android.os.Build.VERSION.SDK_INT < 35 || query.isBlank()) return emptyList()
+        val matches = ArrayList<Int>()
+        synchronized(session) {
+            for (index in 0 until session.pageCount) {
+                val page = session.renderer.openPage(index)
+                try {
+                    if (page.searchText(query).isNotEmpty()) matches += index
+                } finally {
+                    page.close()
+                }
+                if (matches.size >= limit) break
+            }
+        }
+        return matches
+    }
+
     fun renderPage(session: PdfDocumentSession, index: Int, targetWidth: Int = 1080): Bitmap? {
         if (index < 0 || index >= session.pageCount) return null
         val page = session.renderer.openPage(index)
