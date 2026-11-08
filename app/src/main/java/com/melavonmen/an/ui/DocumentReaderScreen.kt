@@ -1,5 +1,6 @@
 package com.melavonmen.an.ui
 
+import android.content.res.Configuration
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
@@ -11,6 +12,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -50,12 +53,16 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -169,6 +176,7 @@ fun DocumentReaderScreen(
                     entry = entry,
                     page = page,
                     onPageChange = { page = it },
+                    preferences = preferences,
                 )
                 MediaKind.EPUB -> if (preferences.seamless) {
                     SeamlessEpubReader(
@@ -348,18 +356,16 @@ private fun PdfContent(
     entry: ComicEntry,
     page: Int,
     onPageChange: (Int) -> Unit,
+    preferences: DocumentReaderPreferences,
 ) {
     var retry by remember(entry.id) { mutableIntStateOf(0) }
     val sessionResult by produceState<Result<PdfDocumentSession>?>(initialValue = null, entry.id, retry) {
-        value = runCatching {
-            withContext(Dispatchers.IO) { LibraryRepository.openPdfSession(entry.id) }
-        }
+        value = runCatching { withContext(Dispatchers.IO) { LibraryRepository.openPdfSession(entry.id) } }
     }
     val session = sessionResult?.getOrNull()
     androidx.compose.runtime.DisposableEffect(session) {
         onDispose { session?.close() }
     }
-
     when {
         sessionResult == null -> DocumentLoading()
         sessionResult!!.isFailure -> DocumentError(
@@ -368,36 +374,73 @@ private fun PdfContent(
         )
         session == null -> DocumentError("无法打开 PDF", onRetry = { retry++ })
         else -> {
+            val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val doublePage = preferences.pdfTwoPage && landscape && page > 0
+            val spreadStart = if (doublePage) 1 + ((page - 1) / 2) * 2 else page
+            val indices = if (doublePage && spreadStart + 1 < session.pageCount) {
+                listOf(spreadStart, spreadStart + 1)
+            } else listOf(spreadStart)
             LaunchedEffect(session.pageCount, page) {
                 if (page !in 0 until session.pageCount) {
                     onPageChange(page.coerceIn(0, (session.pageCount - 1).coerceAtLeast(0)))
                 }
             }
-            val bitmapResult by produceState<Result<Bitmap>?>(initialValue = null, session, page) {
+            val bitmapsResult by produceState<Result<List<Bitmap>>?>(
+                initialValue = null, session, indices, preferences.pdfFitWidth,
+            ) {
                 value = runCatching {
                     withContext(Dispatchers.IO) {
-                        PdfPages.renderPage(session, page, targetWidth = 1080)
-                            ?: error("PDF 页码不在有效范围内")
+                        indices.map { index ->
+                            PdfPages.renderPage(session, index, targetWidth = if (doublePage) 760 else if (preferences.pdfFitWidth) 1440 else 1080)
+                                ?: error("无法渲染 PDF 第 ${index + 1} 页")
+                        }
                     }
                 }
             }
-            val bitmap = bitmapResult?.getOrNull()
-            androidx.compose.runtime.DisposableEffect(bitmap) {
-                onDispose { bitmap?.recycle() }
+            val pages = bitmapsResult?.getOrNull()
+            androidx.compose.runtime.DisposableEffect(pages) {
+                onDispose { pages?.forEach(Bitmap::recycle) }
             }
-            when {
-                bitmapResult == null -> DocumentLoading()
-                bitmapResult!!.isFailure -> DocumentError(
-                    bitmapResult!!.exceptionOrNull()?.message ?: "无法渲染 PDF 页面",
-                    onRetry = { retry++ },
-                )
-                bitmap != null -> Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "PDF 第 ${page + 1} 页",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
-                else -> DocumentError("PDF 页面为空", onRetry = { retry++ })
+            var zoom by remember(session, spreadStart, doublePage) { mutableFloatStateOf(1f) }
+            var pan by remember(session, spreadStart, doublePage) { mutableStateOf(Offset.Zero) }
+            Column(Modifier.fillMaxSize()) {
+                PdfReaderExtras(session, onPageChange)
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    when {
+                        bitmapsResult == null -> DocumentLoading()
+                        bitmapsResult!!.isFailure -> DocumentError(
+                            bitmapsResult!!.exceptionOrNull()?.message ?: "PDF 渲染失败",
+                            onRetry = { retry++ },
+                        )
+                        pages != null -> Row(
+                            modifier = Modifier.fillMaxSize()
+                                .pointerInput(spreadStart, doublePage) {
+                                    detectTransformGestures { _, move, multiplier, _ ->
+                                        zoom = (zoom * multiplier).coerceIn(1f, 5f)
+                                        pan = if (zoom <= 1f) Offset.Zero else pan + move
+                                    }
+                                }
+                                .graphicsLayer {
+                                    scaleX = zoom
+                                    scaleY = zoom
+                                    translationX = pan.x
+                                    translationY = pan.y
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            pages.forEachIndexed { i, bitmap ->
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = "PDF 第 ${indices[i] + 1} 页",
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    contentScale = if (preferences.pdfFitWidth) ContentScale.FillWidth else ContentScale.Fit,
+                                )
+                            }
+                        }
+                        else -> DocumentError("PDF 页面为空", onRetry = { retry++ })
+                    }
+                }
             }
         }
     }
