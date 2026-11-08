@@ -74,6 +74,7 @@ internal fun SeamlessEpubReader(
             isVerticalScrollBarEnabled = false
             val tapDetector = android.view.GestureDetector(context,
                 object : android.view.GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(event: android.view.MotionEvent): Boolean = true
                     override fun onSingleTapConfirmed(event: android.view.MotionEvent): Boolean {
                         tapCallback.value()
                         return false
@@ -162,23 +163,33 @@ internal fun SeamlessEpubReader(
           function measure(frame) {
             try {
               const doc=frame.contentDocument;
-              const newHeight=Math.max(doc.documentElement.scrollHeight,doc.body.scrollHeight,120);
-              frame.style.height=(newHeight+8)+'px';
-              try {
-                const body=doc.body;
-                if(body) {
-                  body.style.fontSize='${preferences.fontSizeSp}px';
-                  body.style.lineHeight='${preferences.lineHeightSp / preferences.fontSizeSp.toFloat()}';
-                  body.style.padding='0 ${preferences.horizontalMarginDp}px';
-                  body.style.fontFamily='${when(preferences.fontFamily) { "serif" -> "serif"; "sans" -> "sans-serif"; "mono" -> "monospace"; else -> "inherit" }}';
-                  for(const p of doc.querySelectorAll('p'))p.style.marginBottom='${preferences.paragraphSpacingDp}px';
-                  body.style.color='$fore';
-                  body.style.backgroundColor='$back';
-                }
-              } catch(e) {}
-              const corrected=Math.max(doc.documentElement.scrollHeight,doc.body.scrollHeight,120);
-              frame.style.height=(corrected+8)+'px';
-            } catch(e) { frame.style.height='1200px'; }
+              if(!doc || !doc.documentElement) return;
+              const body=doc.body;
+              if(body) {
+                body.style.fontSize='${preferences.fontSizeSp}px';
+                body.style.lineHeight='${preferences.lineHeightSp / preferences.fontSizeSp.toFloat()}';
+                body.style.padding='0 ${preferences.horizontalMarginDp}px';
+                body.style.fontFamily='${when(preferences.fontFamily) { "serif" -> "serif"; "sans" -> "sans-serif"; "mono" -> "monospace"; else -> "inherit" }}';
+                for(const paragraph of doc.querySelectorAll('p'))
+                  paragraph.style.marginBottom='${preferences.paragraphSpacingDp}px';
+                body.style.color='$fore';
+                body.style.backgroundColor='$back';
+                body.style.overflowY='hidden';
+              }
+              doc.documentElement.style.overflowY='hidden';
+              const contentHeight=Math.max(
+                120,
+                doc.documentElement.scrollHeight,
+                body ? body.scrollHeight : 0
+              );
+              const height=Math.ceil(contentHeight);
+              // Never add fixed pixels to the current viewport height: an iframe
+              // with height:100% would grow on every measurement / image load.
+              if(Math.abs(frame.offsetHeight-height)>2)
+                frame.style.height=height+'px';
+            } catch(e) {
+              if(frame.offsetHeight<120) frame.style.height='120px';
+            }
           }
           // Android WebView sends gestures to the iframe beneath the finger. A child
           // document can swallow vertical swipes even when its iframe is expanded to
