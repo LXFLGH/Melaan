@@ -1,13 +1,14 @@
 {
   "schema_version": "1.0",
   "id": "library-scan-report",
-  "status": "implemented",
+  "status": "implementation-in-review",
   "title": "SAF 归档扫描结果",
-  "operation": "LibraryRepository.scan(treeUri)",
+  "operation": "LibraryRepository.startScan(treeUris)（后台任务）；Repository.scan(treeUris) 仍可被其他代码挂起调用",
   "result": {
     "archiveCount": "扫描到的 7z、ZIP/CBZ、RAR/CBR 文件数",
     "importedCount": "已建立可阅读书架条目的归档数",
-    "warnings": "逐归档的 ScanWarning 列表（仅名称，不包含本地路径）"
+    "warnings": "逐归档的 ScanWarning 列表（仅名称，不包含本地路径）",
+    "scanProgress": "StateFlow<LibraryScanProgress>；发现/索引两个阶段，实时提供已发现、已处理、已导入数量、当前书籍、最终报告或错误"
   },
   "warning_fields": {
     "displayName": "归档显示名",
@@ -19,6 +20,10 @@
     "从 SAF 树根递归发现任意深度子文件夹内的 .7z、.zip/.cbz 与 .rar/.cbr；重复 URI 只扫描一次",
     "扫描继续处理其他归档；结果报告聚合缺失文件与跳过信息",
     "归档只读，扫描和阅读不将漫画页或归档内容落盘",
-    "扫描遇到不可读 RAR/CBR 时产生包含文件名和明确原因的 skippedReason 警告，不静默跳过。"
+    "扫描遇到不可读 RAR/CBR 时产生包含文件名和明确原因的 skippedReason 警告，不静默跳过。",
+    "SAF 扫描在独立 Dispatchers.IO CoroutineScope 内运行，切换设置页面或 Tab 不会使任务中断；新一轮扫描取消旧任务并串行写入索引",
+    "目录枚举时就上报已发现数量，不必等待所有文件元数据和章节解析完成；跨重叠目录候选文件依文档 ID 去重",
+    "扫描提交成功后才更新持久化书架；进度显示不将尚未解析的候选文件误认为可阅读书籍",
+    "进度不暴露用户文件绝对路径到日志或远端；仅在用户本机 UI 展示显示名"
   ]
 }
