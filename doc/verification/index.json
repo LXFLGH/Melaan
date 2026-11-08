@@ -182,6 +182,18 @@
         "R51",
         "R52"
       ]
+    },
+    {
+      "id": "V18",
+      "cmd": "GitHub Actions: ./gradlew -PmelaanCompileSdk=36 :app:testDebugUnitTest :app:assembleDebug --console=plain",
+      "pass": "Run 42457633386 BUILD SUCCESSFUL; Debug artifact Melaan-debug-api36-compatibility (ID 13608431423); API37 default build and physical device not verified",
+      "covers": [
+        "R2",
+        "R49",
+        "R50",
+        "R51",
+        "R52"
+      ]
     }
   ],
   "manual_review": [
