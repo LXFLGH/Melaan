@@ -7,11 +7,12 @@
     "app/src/main/java/com/melavonmen/an/ui/DocumentReaderScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
     "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt",
-    "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt"
+    "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/DocumentProgress.kt"
   ],
   "entrypoints": [
     "ReaderScreen(comicId, chapterIndex, pageIndex, onExit)",
-    "DocumentReaderScreen(entry, chapterIndex, onExit)"
+    "DocumentReaderScreen(entry, chapterIndex, pageIndex, onExit)"
   ],
   "public_symbols": [
     "ReaderScreen",
@@ -19,7 +20,8 @@
     "ReaderSettingsStore.load",
     "ReaderSettingsStore.save",
     "ReaderSettingsStore.loadAutoNext/saveAutoNext",
-    "BookmarkStore.add/forComic/remove"
+    "BookmarkStore.add/forComic/remove",
+    "DocumentProgress.bookPercent/pdfPercent"
   ],
   "data_structures": [
     {
@@ -27,6 +29,12 @@
       "fields": "scrollMode:Boolean?,rtl:Boolean?,fitWidth:Boolean?,doublePage:Boolean?",
       "source_evidence": "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt",
       "note": "null 表示继承全局设置"
+    },
+    {
+      "name": "DocumentProgress",
+      "fields": "PDF:pageIndex=页面序号；EPUB/TXT:pageIndex=章内滚动基点(0..10000)；percent=全书进度",
+      "source_evidence": "app/src/main/java/com/melavonmen/an/data/DocumentProgress.kt",
+      "note": "保留原 ReadingProgress 四字段 JSON；不回写原始文件"
     }
   ],
   "dependencies": [
