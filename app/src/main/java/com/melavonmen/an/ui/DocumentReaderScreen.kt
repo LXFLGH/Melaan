@@ -204,6 +204,7 @@ fun DocumentReaderScreen(
                     entry = entry,
                     chapter = chapter,
                     restoreScrollUnits = restoreScrollUnits,
+                    preferences = preferences,
                     onChapterChange = { seekChapter(it) },
                     onProgressChange = { scrollUnits = it },
                 )
@@ -489,6 +490,7 @@ private fun EpubContent(
     entry: ComicEntry,
     chapter: Int,
     restoreScrollUnits: Int,
+    preferences: DocumentReaderPreferences,
     onChapterChange: (Int) -> Unit,
     onProgressChange: (Int) -> Unit,
 ) {
@@ -528,6 +530,8 @@ private fun EpubContent(
             settings.loadWithOverviewMode = true
             settings.builtInZoomControls = true
             settings.displayZoomControls = false
+            settings.textZoom = (preferences.fontSizeSp * 100 / 18).coerceIn(70, 200)
+            setBackgroundColor(if (preferences.nightMode) AndroidColor.rgb(20, 23, 27) else AndroidColor.TRANSPARENT)
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     // Only book-local navigation is allowed; never navigate to an external URL.
@@ -589,8 +593,21 @@ private fun EpubContent(
             webView.destroy()
         }
     }
-    LaunchedEffect(html, baseUrl, webView) {
-        webView.loadDataWithBaseURL(baseUrl, html, "application/xhtml+xml", "UTF-8", null)
+    LaunchedEffect(html, baseUrl, webView, preferences) {
+        val fore = if (preferences.nightMode) "#e9e1d5" else "#202127"
+        val back = if (preferences.nightMode) "#14171b" else "#ffffff"
+        val family = when (preferences.fontFamily) {
+            "serif" -> "serif"
+            "sans" -> "sans-serif"
+            "mono" -> "monospace"
+            else -> "inherit"
+        }
+        val style = "<style>body{color:$fore;background:$back;margin-left:${preferences.horizontalMarginDp}px;margin-right:${preferences.horizontalMarginDp}px;font-family:$family}p{margin-bottom:${preferences.paragraphSpacingDp}px}</style>"
+        val body = if (html.contains("</head>", ignoreCase = true)) {
+            html.replace(Regex("</head>", RegexOption.IGNORE_CASE), "$style</head>")
+        } else "$style$html"
+        webView.settings.textZoom = (preferences.fontSizeSp * 100 / 18).coerceIn(70, 200)
+        webView.loadDataWithBaseURL(baseUrl, body, "application/xhtml+xml", "UTF-8", null)
     }
     AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
 }
@@ -665,7 +682,7 @@ private fun TextContent(
 
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().background(if (preferences.nightMode) androidx.compose.ui.graphics.Color(0xFF14171B) else MaterialTheme.colorScheme.background),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = preferences.horizontalMarginDp.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
