@@ -123,7 +123,15 @@ object LibraryRepository {
 
     suspend fun scan(treeUris: List<Uri>, preserveCoverCache: Boolean = false): ScanReport = withContext(Dispatchers.IO) {
         scanRunLock.withLock {
-        if (ExhibitionData.enabled) return@withLock ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人书库")))
+        if (ExhibitionData.enabled) {
+            val report = ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人书库")))
+            mutableScanProgress.value = LibraryScanProgress(
+                phase = LibraryScanPhase.COMPLETED,
+                report = report,
+                completedAtMillis = System.currentTimeMillis(),
+            )
+            return@withLock report
+        }
         val currentJob = currentCoroutineContext()[Job]
         mutableScanProgress.value = LibraryScanProgress(phase = LibraryScanPhase.DISCOVERING)
         var discoveredCount = 0
@@ -207,7 +215,8 @@ object LibraryRepository {
                 warnings += ScanWarning(name, skippedReason = e.message ?: "归档损坏或无法读取")
             } finally {
                 processedCount++
-                if (processedCount <= 12 || processedCount % 8 == 0 || processedCount == uris.size) {
+                if (currentJob?.isActive != false &&
+                    (processedCount <= 12 || processedCount % 8 == 0 || processedCount == uris.size)) {
                     mutableScanProgress.value = mutableScanProgress.value.copy(
                         processedCount = processedCount,
                         importedCount = built.size,
