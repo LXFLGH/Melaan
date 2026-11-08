@@ -15,7 +15,8 @@
     "app/src/main/java/com/melavonmen/an/ui/DocumentReaderTools.kt",
     "app/src/main/java/com/melavonmen/an/ui/PdfReaderExtras.kt",
     "app/src/main/java/com/melavonmen/an/data/DocumentReaderPreferences.kt",
-    "app/src/main/java/com/melavonmen/an/data/DocumentSearch.kt"
+    "app/src/main/java/com/melavonmen/an/data/DocumentSearch.kt",
+    "app/src/main/java/com/melavonmen/an/data/ReaderCore.kt"
   ],
   "entrypoints": [
     "ReaderScreen(comicId, chapterIndex, pageIndex, onExit)",
@@ -28,7 +29,8 @@
     "ReaderSettingsStore.save",
     "ReaderSettingsStore.loadAutoNext/saveAutoNext",
     "BookmarkStore.add/forComic/remove",
-    "DocumentProgress.bookPercent/pdfPercent"
+    "DocumentProgress.bookPercent/pdfPercent",
+    "ReaderCore.restore/persist"
   ],
   "data_structures": [
     {
