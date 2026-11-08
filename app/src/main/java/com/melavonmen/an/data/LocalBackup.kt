@@ -37,7 +37,11 @@ object LocalBackup {
         val rawStores = root["stores"] as? Map<*, *> ?: error("Missing stores")
         val updates = linkedMapOf<String, Map<String, Any?>>()
         for (name in storeNames + optionalStoreNames + "melaan_settings") {
-            val values = rawStores[name] as? Map<*, *> ?: if (name in optionalStoreNames) continue else error("Missing $name")
+            val values = rawStores[name] as? Map<*, *>
+            if (values == null) {
+                if (name in optionalStoreNames) continue
+                error("Missing $name")
+            }
             val clean = linkedMapOf<String, Any?>()
             values.forEach { (key, value) ->
                 require(key is String) { "Invalid preference key" }
