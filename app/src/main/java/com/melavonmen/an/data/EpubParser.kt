@@ -68,13 +68,14 @@ internal object EpubParser {
                 ?.trim()
                 ?.let { id -> manifestItems[id] }
                 ?.takeIf { it.mediaType.startsWith("image/", ignoreCase = true) }
+        val chapterTitles = readChapterTitles(reader, manifestItems, spine)
         val spineIds = children(spine, "itemref")
             .mapNotNull { it.getAttribute("idref").trim().takeIf(String::isNotBlank) }
         val chapters = spineIds.mapNotNull { id ->
             val item = manifestItems[id] ?: return@mapNotNull null
             if (!isHtmlMediaType(item.mediaType)) return@mapNotNull null
             ChapterRef(
-                name = chapterTitle(item.href),
+                name = chapterTitles[item.href] ?: chapterTitle(item.href),
                 pageEntryPaths = listOf(item.href),
                 nestedArchiveEntryPath = null,
             )
@@ -88,6 +89,46 @@ internal object EpubParser {
             chapters = chapters,
             coverEntryName = coverItem?.href,
         )
+    }
+
+    /** Resolve EPUB 3 nav and EPUB 2 NCX labels against spine file paths. */
+    private fun readChapterTitles(
+        reader: ArchiveReader,
+        manifest: Map<String, EpubManifestItem>,
+        spine: Element,
+    ): Map<String, String> {
+        val nav = manifest.values.firstOrNull { "nav" in it.properties }
+        val ncx = spine.getAttribute("toc").takeIf(String::isNotBlank)?.let(manifest::get)
+            ?: manifest.values.firstOrNull { it.mediaType.equals("application/x-dtbncx+xml", true) }
+        val titles = LinkedHashMap<String, String>()
+        if (ncx != null) {
+            val root = runCatching { parseXml(reader.readEntryBytes(ncx.href)) }.getOrNull()
+            if (root != null) {
+                val base = ncx.href.substringBeforeLast('/', "")
+                descendants(root, "navPoint").forEach { point ->
+                    val label = children(point, "navLabel").firstOrNull()
+                        ?.let { childText(it, "text") }?.trim().orEmpty()
+                    val href = children(point, "content").firstOrNull()?.getAttribute("src").orEmpty()
+                    if (label.isNotBlank() && href.isNotBlank()) titles.putIfAbsent(resolveHref(base, href), label)
+                }
+            }
+        }
+        if (nav != null) {
+            val root = runCatching { parseXml(reader.readEntryBytes(nav.href)) }.getOrNull()
+            if (root != null) {
+                val base = nav.href.substringBeforeLast('/', "")
+                val toc = descendants(root, "nav").firstOrNull { node ->
+                    node.getAttribute("epub:type").split(' ').contains("toc") ||
+                        node.getAttribute("type").split(' ').contains("toc")
+                } ?: descendants(root, "nav").firstOrNull()
+                if (toc != null) descendants(toc, "a").forEach { anchor ->
+                    val label = anchor.textContent.trim()
+                    val href = anchor.getAttribute("href")
+                    if (label.isNotBlank() && href.isNotBlank()) titles[resolveHref(base, href)] = label
+                }
+            }
+        }
+        return titles
     }
 
     private fun findRootFilePath(container: Node): String? =
