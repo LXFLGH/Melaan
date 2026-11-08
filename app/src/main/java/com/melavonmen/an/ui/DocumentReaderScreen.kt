@@ -108,7 +108,10 @@ fun DocumentReaderScreen(
     val collections = remember(context) { LibraryCollectionsStore(context) }
     var preferences by remember(entry.id) { mutableStateOf(DocumentReaderPreferencesStore.load(context)) }
     var showOptions by remember(entry.id) { mutableStateOf(false) }
+    var showSearch by remember(entry.id) { mutableStateOf(false) }
+    var showBookmarks by remember(entry.id) { mutableStateOf(false) }
     var seekToken by remember(entry.id) { mutableIntStateOf(0) }
+    var requestedUnits by remember(entry.id) { mutableIntStateOf(pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS)) }
     val chapterCount = entry.chapters.size.coerceAtLeast(1)
     var chapter by remember(entry.id) {
         mutableIntStateOf(chapterIndex.coerceIn(0, chapterCount - 1))
@@ -125,11 +128,12 @@ fun DocumentReaderScreen(
     val latestChapter by rememberUpdatedState(chapter)
     val latestPage by rememberUpdatedState(page)
     val latestScroll by rememberUpdatedState(scrollUnits)
-    fun seekChapter(target: Int) {
+    fun seekChapter(target: Int, units: Int = 0) {
         chapter = target.coerceIn(0, chapterCount - 1)
-        page = 0
-        scrollUnits = 0
-        restoreScrollUnits = 0
+        page = if (isPdf) units.coerceAtLeast(0) else 0
+        scrollUnits = if (isPdf) 0 else units.coerceIn(0, DocumentProgress.SCROLL_UNITS)
+        restoreScrollUnits = scrollUnits
+        requestedUnits = scrollUnits
         seekToken++
     }
 
@@ -169,6 +173,9 @@ fun DocumentReaderScreen(
             subtitle = if (isPdf) "PDF · 第 ${page + 1} 页" else chapterSubtitle(entry, chapter),
             onBack = exit,
             onOptions = { showOptions = true },
+            onSearch = { showSearch = true },
+            onBookmarks = { showBookmarks = true },
+            document = !isPdf,
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (mediaKind(entry.format)) {
@@ -184,19 +191,20 @@ fun DocumentReaderScreen(
                         initialChapter = chapterIndex,
                         initialUnits = pageIndex,
                         requestedChapter = chapter,
+                        requestedUnits = requestedUnits,
                         seekToken = seekToken,
                         preferences = preferences,
                         onPositionChange = { current, units ->
                             chapter = current
                             scrollUnits = units
                         },
-                        onLinkChapter = ::seekChapter,
+                        onLinkChapter = { seekChapter(it) },
                     )
                 } else EpubContent(
                     entry = entry,
                     chapter = chapter,
                     restoreScrollUnits = restoreScrollUnits,
-                    onChapterChange = ::seekChapter,
+                    onChapterChange = { seekChapter(it) },
                     onProgressChange = { scrollUnits = it },
                 )
                 MediaKind.TXT -> if (preferences.seamless) {
@@ -205,6 +213,7 @@ fun DocumentReaderScreen(
                         initialChapter = chapterIndex,
                         initialUnits = pageIndex,
                         requestedChapter = chapter,
+                        requestedUnits = requestedUnits,
                         seekToken = seekToken,
                         preferences = preferences,
                         onPositionChange = { current, units ->
@@ -228,7 +237,7 @@ fun DocumentReaderScreen(
             chapterCount = chapterCount,
             pdfPageCount = entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1,
             page = page,
-            onChapterChange = ::seekChapter,
+            onChapterChange = { seekChapter(it) },
             onPageChange = { page = it },
             onExit = exit,
         )
@@ -242,10 +251,30 @@ fun DocumentReaderScreen(
         },
         onDismiss = { showOptions = false },
     )
+    if (showSearch && !isPdf) DocumentSearchDialog(
+        entry = entry,
+        onJump = { selected, units -> seekChapter(selected, units) },
+        onDismiss = { showSearch = false },
+    )
+    if (showBookmarks) DocumentBookmarksDialog(
+        entry = entry,
+        currentChapter = chapter,
+        currentPosition = if (isPdf) page else scrollUnits,
+        onJump = { selected, position -> seekChapter(selected, position) },
+        onDismiss = { showBookmarks = false },
+    )
 }
 
 @Composable
-private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit, onOptions: () -> Unit) {
+private fun ReaderTopBar(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    onOptions: () -> Unit,
+    onSearch: () -> Unit,
+    onBookmarks: () -> Unit,
+    document: Boolean,
+) {
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -279,7 +308,9 @@ private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit, on
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        TextButton(onClick = onOptions) { Text("Aa / ⚙") }
+        if (document) TextButton(onClick = onSearch) { Text("查找") }
+        TextButton(onClick = onBookmarks) { Text("书签") }
+        TextButton(onClick = onOptions) { Text("Aa") }
     }
 }
 
