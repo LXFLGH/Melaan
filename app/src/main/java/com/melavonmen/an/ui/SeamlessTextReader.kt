@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.DocumentProgress
 import com.melavonmen.an.data.DocumentReaderPreferences
@@ -173,7 +174,7 @@ internal fun SeamlessTextReader(
         state = listState,
         modifier = Modifier.fillMaxSize().background(background),
         contentPadding = PaddingValues(horizontal = preferences.horizontalMarginDp.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(preferences.paragraphSpacingDp.dp),
     ) {
         itemsIndexed(rows, key = { _, row -> row.id }) { _, row ->
             when {
@@ -201,6 +202,12 @@ internal fun SeamlessTextReader(
                     modifier = Modifier.fillMaxWidth(),
                     fontSize = preferences.fontSizeSp.sp,
                     lineHeight = preferences.lineHeightSp.sp,
+                    fontFamily = when (preferences.fontFamily) {
+                        "serif" -> FontFamily.Serif
+                        "sans" -> FontFamily.SansSerif
+                        "mono" -> FontFamily.Monospace
+                        else -> FontFamily.Default
+                    },
                     color = foreground,
                 )
             }
