@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import com.melavonmen.an.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -179,8 +180,9 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
     var showLostFiles by remember { mutableStateOf(false) }
     var removingDuplicate by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scanProgress by LibraryRepository.scanProgress.collectAsState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(scanProgress.completedAtMillis) {
         val data = LibrarySnapshot.load()
         progressById = data.progressById
         comics = data.comics
