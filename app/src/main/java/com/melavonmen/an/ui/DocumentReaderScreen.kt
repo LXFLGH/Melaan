@@ -68,6 +68,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.viewinterop.AndroidView
 import com.melavonmen.an.data.ChapterRef
 import com.melavonmen.an.data.DocumentProgress
@@ -673,6 +674,12 @@ private fun TextContent(
                 paragraph,
                 fontSize = preferences.fontSizeSp.sp,
                 lineHeight = preferences.lineHeightSp.sp,
+                fontFamily = when (preferences.fontFamily) {
+                    "serif" -> FontFamily.Serif
+                    "sans" -> FontFamily.SansSerif
+                    "mono" -> FontFamily.Monospace
+                    else -> FontFamily.Default
+                },
                 color = if (preferences.nightMode) androidx.compose.ui.graphics.Color(0xFFE9E1D5) else MaterialTheme.colorScheme.onBackground,
             )
         }
