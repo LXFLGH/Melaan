@@ -519,8 +519,10 @@ private fun EpubContent(
     preferences: DocumentReaderPreferences,
     onChapterChange: (Int) -> Unit,
     onProgressChange: (Int) -> Unit,
+    onReaderTap: () -> Unit,
 ) {
     val context = LocalContext.current
+    val currentReaderTap = rememberUpdatedState(onReaderTap)
     val chapterPath = entry.chapters.getOrNull(chapter)?.pageEntryPaths?.firstOrNull().orEmpty()
     val baseUrl = remember(chapterPath) {
         "https://melaan.epub/" + chapterPath.split('/').joinToString("/") { Uri.encode(it) }
@@ -556,6 +558,16 @@ private fun EpubContent(
             settings.loadWithOverviewMode = true
             settings.builtInZoomControls = true
             settings.displayZoomControls = false
+            val tapDetector = android.view.GestureDetector(context,
+                object : android.view.GestureDetector.SimpleOnGestureListener() {
+                    override fun onSingleTapConfirmed(event: android.view.MotionEvent): Boolean {
+                        currentReaderTap.value()
+                        return false
+                    }
+                },
+            )
+            // Observe taps but never consume WebView touches: links and vertical scrolling must work.
+            setOnTouchListener { _, event -> tapDetector.onTouchEvent(event); false }
             settings.textZoom = (preferences.fontSizeSp * 100 / 18).coerceIn(70, 200)
             setBackgroundColor(if (preferences.nightMode) AndroidColor.rgb(20, 23, 27) else AndroidColor.TRANSPARENT)
             webViewClient = object : WebViewClient() {
