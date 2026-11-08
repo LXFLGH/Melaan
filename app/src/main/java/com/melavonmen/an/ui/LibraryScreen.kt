@@ -71,6 +71,8 @@ import com.melavonmen.an.data.TagCatalog
 import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.mediaKind
+import com.melavonmen.an.data.MediaKind
+import com.melavonmen.an.data.DocumentProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -290,7 +292,12 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 if (entry != null) Column(
                     Modifier.fillMaxWidth().clickable { onOpenComic(progress.comicId) }.padding(vertical = 8.dp)
                 ) {
-                    Text(stringResource(R.string.library_history_entry, entry.title, progress.chapterIndex + 1, progress.pageIndex + 1), color = Ink)
+                    val location = when (mediaKind(entry.format)) {
+                        MediaKind.PDF -> "第 ${progress.pageIndex + 1} 页"
+                        MediaKind.EPUB, MediaKind.TXT -> "第 ${progress.chapterIndex + 1} 章 · 章内 ${progress.pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS) / 100}%"
+                        MediaKind.COMIC -> "第 ${progress.chapterIndex + 1} 话 · 第 ${progress.pageIndex + 1} 页"
+                    }
+                    Text("${entry.title} · $location", color = Ink)
                     Text(stringResource(R.string.library_history_timestamp, DateFormat.getDateTimeInstance().format(Date(item.timestampMillis))), color = SubText, fontSize = 11.sp)
                 }
             }
@@ -589,7 +596,8 @@ private fun ComicCard(
         "未开始 · ${formatSize(entry.sizeBytes)}"
     } else {
         val ch = entry.chapters.size.coerceAtLeast(1)
-        "第${progress.chapterIndex + 1}/${ch}${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}"
+        if (mediaKind(entry.format) == MediaKind.PDF) "第${progress.pageIndex + 1}/${entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1}页 · ${formatSize(entry.sizeBytes)}"
+        else "第${progress.chapterIndex + 1}/${ch}${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}"
     }
 
     GlassSurface(
