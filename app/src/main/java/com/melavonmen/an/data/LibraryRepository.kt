@@ -17,7 +17,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.CancellationException as CoroutineCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
@@ -86,7 +85,7 @@ object LibraryRepository {
             activeScanJob = scanScope.launch {
                 try {
                     scan(requestedUris, preserveCoverCache)
-                } catch (cancelled: CoroutineCancellationException) {
+                } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
                     mutableScanProgress.value = mutableScanProgress.value.copy(
