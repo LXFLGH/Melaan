@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
+import com.melavonmen.an.data.UserBookMetadataStore
 import com.melavonmen.an.data.LibraryCollectionsStore
 import com.melavonmen.an.data.LibraryMaintenance
 import com.melavonmen.an.data.LibrarySnapshot
@@ -104,6 +105,9 @@ private enum class Segment(val label: String, val status: String?) {
 private enum class SortMode(val label: String) {
     RECENT("最近阅读"),
     TITLE("标题"),
+    AUTHOR("作者"),
+    SERIES("系列"),
+    FORMAT("文件格式"),
     SIZE("大小"),
     PROGRESS("进度")
 }
@@ -208,10 +212,14 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
             .filter { activeBookList == null || bookLists.firstOrNull { list -> list.name == activeBookList }?.comicIds?.contains(it.id) == true }
             .filter { selectedKind == null || mediaKind(it.format) == selectedKind }
     }
-    val display = remember(filtered, sortMode, progressById) {
+    val display = remember(filtered, sortMode, progressById, history) {
+        val recentlyRead = history.associate { it.progress.comicId to it.timestampMillis }
         when (sortMode) {
-            SortMode.RECENT -> filtered
+            SortMode.RECENT -> filtered.sortedWith(compareByDescending<ComicEntry> { recentlyRead[it.id] ?: 0L }.thenBy { it.title.lowercase() })
             SortMode.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            SortMode.AUTHOR -> filtered.sortedBy { it.authors.firstOrNull()?.lowercase() ?: "\\uffff" }
+            SortMode.SERIES -> filtered.sortedWith(compareBy<ComicEntry> { UserBookMetadataStore.load(it.id).series.ifBlank { "\\uffff" }.lowercase() }.thenBy { it.title.lowercase() })
+            SortMode.FORMAT -> filtered.sortedWith(compareBy<ComicEntry> { it.format }.thenBy { it.title.lowercase() })
             SortMode.SIZE -> filtered.sortedByDescending { it.sizeBytes }
             SortMode.PROGRESS -> filtered.sortedByDescending { progressById[it.id]?.percent ?: -1 }
         }
