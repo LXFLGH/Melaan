@@ -45,10 +45,12 @@ internal fun SeamlessEpubReader(
     preferences: DocumentReaderPreferences,
     onPositionChange: (Int, Int) -> Unit,
     onLinkChapter: (Int) -> Unit,
+    onReaderTap: () -> Unit,
 ) {
     val context = LocalContext.current
     val positionCallback = rememberUpdatedState(onPositionChange)
     val chapterCallback = rememberUpdatedState(onLinkChapter)
+    val tapCallback = rememberUpdatedState(onReaderTap)
     val activeChapter = rememberUpdatedState(requestedChapter)
     val urls = remember(entry.id) {
         entry.chapters.map { chapter ->
@@ -70,6 +72,16 @@ internal fun SeamlessEpubReader(
             settings.setSupportMultipleWindows(false)
             settings.mediaPlaybackRequiresUserGesture = true
             isVerticalScrollBarEnabled = false
+            val tapDetector = android.view.GestureDetector(context,
+                object : android.view.GestureDetector.SimpleOnGestureListener() {
+                    override fun onSingleTapConfirmed(event: android.view.MotionEvent): Boolean {
+                        tapCallback.value()
+                        return false
+                    }
+                },
+            )
+            // Let WebView deliver vertical swipes and links normally; only observe single taps.
+            setOnTouchListener { _, event -> tapDetector.onTouchEvent(event); false }
             addJavascriptInterface(bridge, "MelaanProgress")
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
@@ -168,16 +180,78 @@ internal fun SeamlessEpubReader(
               frame.style.height=(corrected+8)+'px';
             } catch(e) { frame.style.height='1200px'; }
           }
+          // Android WebView sends gestures to the iframe beneath the finger. A child
+          // document can swallow vertical swipes even when its iframe is expanded to
+          // its full height. Forward them to the outer, single chapter scroller.
+          function attachChildScrollRelay(frame) {
+            let doc;
+            try { doc=frame.contentDocument; } catch(e) { return; }
+            if(!doc || !doc.documentElement || doc._melaanScrollRelay) return;
+            doc._melaanScrollRelay=true;
+            frame.setAttribute('scrolling','no');
+            doc.documentElement.style.overflowY='hidden';
+            if(doc.body) doc.body.style.overflowY='hidden';
+
+            let lastY=null;
+            doc.addEventListener('touchstart',function(e) {
+              lastY=e.touches.length===1 ? e.touches[0].clientY : null;
+            },{passive:true});
+            doc.addEventListener('touchmove',function(e) {
+              if(lastY===null || e.touches.length!==1) {lastY=null;return;}
+              const now=e.touches[0].clientY;
+              const delta=lastY-now;
+              lastY=now;
+              if(Math.abs(delta)<0.5)return;
+              if(e.cancelable)e.preventDefault();
+              window.scrollBy(0,delta);
+            },{passive:false});
+            doc.addEventListener('touchend',function(){lastY=null;},{passive:true});
+            doc.addEventListener('touchcancel',function(){lastY=null;},{passive:true});
+            doc.addEventListener('wheel',function(e) {
+              if(e.cancelable)e.preventDefault();
+              window.scrollBy(e.deltaX,e.deltaY);
+            },{passive:false});
+
+            // Restore the outer viewport when a browser forcibly scrolls a child frame.
+            doc.addEventListener('scroll',function() {
+              const child=doc.scrollingElement;
+              if(child && child.scrollTop) {
+                const dy=child.scrollTop;
+                child.scrollTop=0;
+                window.scrollBy(0,dy);
+              }
+            },{passive:true});
+
+            // Late image/font layout must expand the iframe, otherwise WebView
+            // leaves a tiny internal scroll area that traps vertical swipes.
+            for(const img of doc.images)img.addEventListener('load',function(){
+              measure(frame);if(restored)update();
+            },{passive:true});
+            if(doc.fonts && doc.fonts.ready)doc.fonts.ready.then(function(){
+              measure(frame);if(restored)update();
+            });
+            if(window.ResizeObserver && doc.body){
+              const observer=new ResizeObserver(function(){
+                const height=frame.offsetHeight;
+                measure(frame);
+                if(restored && Math.abs(frame.offsetHeight-height)>2)update();
+              });
+              observer.observe(doc.body);
+              frame._melaanObserver=observer;
+            }
+          }
           function create(index,prepend) {
             if(index<0||index>=urls.length||frames.has(index))return;
             const frame=document.createElement('iframe');
             frame.setAttribute('sandbox','allow-same-origin');
+            frame.setAttribute('scrolling','no');
             frame.src=urls[index];
             frame.dataset.chapter=String(index);
             frame.loading='eager';
             frame.addEventListener('load',function(){
               const original=frame.offsetHeight;
               measure(frame);
+              attachChildScrollRelay(frame);
               if(prepend&&restored&&index<active)window.scrollBy(0,frame.offsetHeight-original);
               if(index===target&&!restored) {
                 setTimeout(function(){
@@ -220,9 +294,12 @@ internal fun SeamlessEpubReader(
             while(frames.size>5) {
               const h=frames.get(first),t=frames.get(last);
               if(h&&h.getBoundingClientRect().bottom < -innerHeight*1.5) {
-                const height=h.offsetHeight;h.remove();frames.delete(first);first++;
+                const height=h.offsetHeight;
+                if(h._melaanObserver)h._melaanObserver.disconnect();
+                h.remove();frames.delete(first);first++;
                 window.scrollBy(0,-height);
               }else if(t&&t.getBoundingClientRect().top>innerHeight*3) {
+                if(t._melaanObserver)t._melaanObserver.disconnect();
                 t.remove();frames.delete(last);last--;
               }else break;
             }
@@ -230,6 +307,7 @@ internal fun SeamlessEpubReader(
           window.melaanSeek=function(index,units){
             if(index<0||index>=urls.length)return;
             // reset bounded window to requested chapter; preserve navigation semantics
+            for(const old of frames.values())if(old._melaanObserver)old._melaanObserver.disconnect();
             root.replaceChildren();frames.clear();
             first=Math.max(0,index-1);last=Math.min(urls.length-1,index+1);
             active=index;target=index;restoreUnits=units;restored=false;
