@@ -1,0 +1,49 @@
+{
+  "schema_version": "1.0",
+  "id": "issue-2-reader-correctness",
+  "status": "implementation-in-review",
+  "source_issue": "https://github.com/LXFLGH/Melaan/issues/2",
+  "baseline_revision": "2376f22f471c882d63b76af4f93f8f585411d4de",
+  "target_contracts": [
+    "reading-progress",
+    "local-documents",
+    "reader-experience"
+  ],
+  "decisions": [
+    "保留 ReadingProgress 的四字段 JSON 以向后兼容旧版书架、历史与备份",
+    "PDF 的 pageIndex 为零基页序号；EPUB/TXT 的 pageIndex 为章内滚动位置（0..10000）",
+    "percent 对所有格式均代表全书进度；EPUB/TXT 暂按章节数等权近似",
+    "文档读取失败使用显式错误状态并提供重试，不依赖 null 代表错误",
+    "EPUB WebView 仅响应当前书籍的 HTTPS 虚拟主机资源及已索引章节链接"
+  ],
+  "affected_source_paths": [
+    "app/src/main/java/com/melavonmen/an/data/DocumentProgress.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
+    "app/src/main/java/com/melavonmen/an/data/EpubParser.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DocumentReaderScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
+    "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
+    "app/src/test/java/com/melavonmen/an/data/DocumentProgressTest.kt",
+    "app/src/test/java/com/melavonmen/an/data/EpubParserTest.kt"
+  ],
+  "implemented": [
+    "首页继续阅读从 ProgressStore.load 恢复初始章节及页码",
+    "PDF 恢复页序号；EPUB/TXT 保存和恢复章内 0..10000 滚动位置",
+    "DocumentProgress 统一计算全书百分比，并按约 800ms 去抖保存阅读变动",
+    "EPUB/TXT/PDF 使用 Loading/Success/Error 语义，读取或渲染错误时显示重试",
+    "EPUB 路径按 URI 编码规则解码，资源 URL 编码并约束 WebView 的 scheme/host/path",
+    "EPUB 点击已索引的跨章节链接时同步切换 chapterIndex",
+    "PDF/TXT 作者读取不再走 ArchiveReader，首页阅读卡文案按文件类型展示",
+    "新增进度百分比及 EPUB percent-encoding 回归测试"
+  ],
+  "pending": [
+    "完整 Android 构建与测试（当前执行环境无 Android SDK/联网编译条件）",
+    "实机验证 EPUB/CSS/图片/内部链接、PDF 翻页和重试、TXT 章内滚动恢复",
+    "EPUB TOC/NCX/nav、TXT 大文件偏移索引、用户自定义排版、PDF 缩放/搜索等 Issue #2 剩余优化"
+  ],
+  "verification": {
+    "current": "not-run",
+    "local_command": "./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain",
+    "device_acceptance": "手动分别从首页、详情页、历史进入 EPUB/PDF/TXT；翻页/滚动后强制结束进程再启动并验证进度和错误 UI"
+  }
+}
