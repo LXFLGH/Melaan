@@ -240,6 +240,8 @@ object LibraryRepository {
         val oldMeta = UserBookMetadataStore.load(oldId)
         if (UserBookMetadataStore.load(newId) == UserBookMetadata()) UserBookMetadataStore.save(newId, oldMeta)
         UserBookMetadataStore.remove(oldId)
+        userTags?.get(oldId).orEmpty().forEach { tag -> userTags?.add(newId, tag) }
+        userTags?.remove(oldId)
         collections.removeComic(oldId)
         ProgressStore.remove(oldId)
         LostBookStore.forget(oldId)
