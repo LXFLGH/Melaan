@@ -30,7 +30,11 @@
     "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
     ".github/workflows/android-check.yml",
-    "README.md"
+    "README.md",
+    "app/src/main/java/com/melavonmen/an/data/ReaderCore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LostBookStore.kt",
+    "app/src/main/java/com/melavonmen/an/ui/LostBooksDialog.kt",
+    "app/src/main/java/com/melavonmen/an/data/LocalBackup.kt"
   ],
   "implemented": [
     "首页继续阅读从 ProgressStore.load 恢复初始章节及页码",
@@ -51,15 +55,18 @@
     "EPUB/TXT 逐章全文搜索、命名书签增删与阅读位置跳转",
     "书籍标题/作者/系列覆盖层；按最近阅读、作者、系列、格式排序",
     "SAF 文件大小和修改时间均一致时复用旧索引，扫描修改的文件重新解析",
-    "GitHub Actions API36 兼容性构建并上传 Debug APK artifact，API37 正式构建仍需本机执行"
+    "GitHub Actions API36 兼容性构建并上传 Debug APK artifact，API37 正式构建仍需本机执行",
+    "抽取 ReaderCore.restore/persist 共用漫画/电子书阅读进度与历史记录保存",
+    "记录因 SAF URI 消失的书籍，并提供用户手动确认的新旧文件关联；迁移进度、书签、收藏、书单、用户标签及元数据",
+    "本地备份加入阅读排版偏好与自定义元数据，并兼容旧版无新增 store 的备份"
   ],
   "pending": [
     "当前提交的 CI 单测与 Debug 构建结果待验收，API37 原生构建及实机 EPUB/PDF/TXT 验收待完成",
     "EPUB iframe 沙箱脚本、图文混排、站内外链接、极长章节、图片/字体加载和滑动窗口生命周期尚待实机压力测试",
     "TXT 超大文件、复杂 GB18030/UTF16、进度位置恢复及前后章节回收尚待实机压力测试",
-    "文件迁移后的进度与书签自动/手动重新关联尚未完成",
     "更精细的文本锚点位置（EPUB CFI）、PDF OCR（扫描件）、日文竖排/注音等进阶功能尚未完成",
-    "已构建 APK 与 GitHub Release/latest 原安装包尚未同步"
+    "已构建 APK 与 GitHub Release/latest 原安装包尚未同步",
+    "确认文件重新关联的候选匹配、旧 URI 权限失效和备份合并等完整实机流程"
   ],
   "verification": {
     "current": "implementation-in-review; CI SDK36 tested previously but newest sources pending; API37 and Android device not validated",
