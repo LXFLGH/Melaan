@@ -45,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -61,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.melavonmen.an.data.ChapterRef
+import com.melavonmen.an.data.DocumentProgress
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibraryCollectionsStore
@@ -74,14 +76,20 @@ import com.melavonmen.an.data.isPdfFormat
 import com.melavonmen.an.data.mediaKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
+@OptIn(FlowPreview::class)
 @Composable
 fun DocumentReaderScreen(
     entry: ComicEntry,
     chapterIndex: Int,
+    pageIndex: Int,
     onExit: () -> Unit,
 ) {
     require(isDocumentFormat(entry.format)) { "unsupported document format: ${entry.format}" }
@@ -91,11 +99,18 @@ fun DocumentReaderScreen(
     var chapter by remember(entry.id) {
         mutableIntStateOf(chapterIndex.coerceIn(0, chapterCount - 1))
     }
-    var page by remember(entry.id, chapter) { mutableIntStateOf(0) }
-    var scrollPercent by remember(entry.id, chapter) { mutableIntStateOf(0) }
+    val isPdf = isPdfFormat(entry.format)
+    // EPUB/TXT use pageIndex as chapter scroll position (0..10_000); PDF uses a page number.
+    var page by remember(entry.id) { mutableIntStateOf(if (isPdf) pageIndex.coerceAtLeast(0) else 0) }
+    var scrollUnits by remember(entry.id) {
+        mutableIntStateOf(if (isPdf) 0 else pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS))
+    }
+    var restoreScrollUnits by remember(entry.id) {
+        mutableIntStateOf(if (isPdf) 0 else pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS))
+    }
     val latestChapter by rememberUpdatedState(chapter)
     val latestPage by rememberUpdatedState(page)
-    val latestPercent by rememberUpdatedState(scrollPercent)
+    val latestScroll by rememberUpdatedState(scrollUnits)
 
     val saveProgress = {
         val total = when (mediaKind(entry.format)) {
@@ -103,10 +118,11 @@ fun DocumentReaderScreen(
             else -> chapterCount
         }
         val percent = when (mediaKind(entry.format)) {
-            MediaKind.PDF -> if (total > 0) ((latestPage + 1) * 100) / total else 0
-            else -> latestPercent
+            MediaKind.PDF -> DocumentProgress.pdfPercent(latestPage, total)
+            else -> DocumentProgress.bookPercent(latestChapter, chapterCount, latestScroll)
         }
-        val progress = ReadingProgress(entry.id, latestChapter, latestPage, percent.coerceIn(0, 100))
+        val position = if (isPdf) latestPage else latestScroll
+        val progress = ReadingProgress(entry.id, latestChapter, position, percent)
         runCatching { ProgressStore.save(progress) }
         runCatching { collections.recordProgress(progress) }
     }
@@ -118,11 +134,18 @@ fun DocumentReaderScreen(
     androidx.compose.runtime.DisposableEffect(entry.id) {
         onDispose { saveProgress() }
     }
+    // Persist debounced updates as well as exit: an OS process kill need not trigger onDispose.
+    LaunchedEffect(entry.id) {
+        snapshotFlow { Triple(chapter, page, scrollUnits) }
+            .drop(1)
+            .debounce(800L)
+            .collect { saveProgress() }
+    }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         ReaderTopBar(
             title = entry.title,
-            subtitle = chapterSubtitle(entry, chapter),
+            subtitle = if (isPdf) "PDF · 第 ${page + 1} 页" else chapterSubtitle(entry, chapter),
             onBack = exit,
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -131,17 +154,18 @@ fun DocumentReaderScreen(
                     entry = entry,
                     page = page,
                     onPageChange = { page = it },
-                    onProgressChange = { scrollPercent = it },
                 )
                 MediaKind.EPUB -> EpubContent(
                     entry = entry,
                     chapter = chapter,
-                    onProgressChange = { scrollPercent = it },
+                    restoreScrollUnits = restoreScrollUnits,
+                    onProgressChange = { scrollUnits = it },
                 )
                 MediaKind.TXT -> TextContent(
                     entry = entry,
                     chapter = chapter,
-                    onProgressChange = { scrollPercent = it },
+                    restoreScrollUnits = restoreScrollUnits,
+                    onProgressChange = { scrollUnits = it },
                 )
                 else -> DocumentError("这不是电子书文件")
             }
@@ -155,7 +179,8 @@ fun DocumentReaderScreen(
             onChapterChange = { value ->
                 chapter = value
                 page = 0
-                scrollPercent = 0
+                scrollUnits = 0
+                restoreScrollUnits = 0
             },
             onPageChange = { page = it },
             onExit = exit,
