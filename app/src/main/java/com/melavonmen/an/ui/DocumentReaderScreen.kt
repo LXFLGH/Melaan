@@ -179,7 +179,6 @@ fun DocumentReaderScreen(
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(readingSurface) {
-        Box(Modifier.fillMaxSize()) {
             when (mediaKind(entry.format)) {
                 MediaKind.PDF -> PdfContent(
                     entry = entry,
@@ -235,7 +234,6 @@ fun DocumentReaderScreen(
                 )
                 else -> DocumentError("这不是电子书文件")
             }
-        }
         }
         if (controlsVisible) {
             Box(
@@ -560,6 +558,7 @@ private fun EpubContent(
             settings.displayZoomControls = false
             val tapDetector = android.view.GestureDetector(context,
                 object : android.view.GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(event: android.view.MotionEvent): Boolean = true
                     override fun onSingleTapConfirmed(event: android.view.MotionEvent): Boolean {
                         currentReaderTap.value()
                         return false
