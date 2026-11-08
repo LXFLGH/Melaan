@@ -11,11 +11,12 @@ object LocalBackup {
         "reader_fit_width", "reader_seamless", "reader_double_page", "reader.auto_next_chapter"
     )
     private val storeNames = listOf("reading_progress", "library_collections", "comic_user_tags")
+    private val optionalStoreNames = listOf("melaan_book_overrides", "melaan_document_reader")
 
     fun export(context: Context): String {
         BookmarkStore.init(context)
         val stores = linkedMapOf<String, Any?>()
-        (storeNames + "melaan_settings").forEach { name ->
+        (storeNames + optionalStoreNames + "melaan_settings").forEach { name ->
             val all = context.getSharedPreferences(name, Context.MODE_PRIVATE).all
             val selected = if (name == "melaan_settings") all.filterKeys(::isBackupSettingKey) else all
             stores[name] = selected.mapValues { (_, value) -> if (value is Set<*>) value.filterIsInstance<String>() else value }
@@ -35,8 +36,8 @@ object LocalBackup {
         require(root["format"] == "melaan-local-backup" && Json.asInt(root["version"]) == VERSION) { "Unsupported backup" }
         val rawStores = root["stores"] as? Map<*, *> ?: error("Missing stores")
         val updates = linkedMapOf<String, Map<String, Any?>>()
-        for (name in storeNames + "melaan_settings") {
-            val values = rawStores[name] as? Map<*, *> ?: error("Missing $name")
+        for (name in storeNames + optionalStoreNames + "melaan_settings") {
+            val values = rawStores[name] as? Map<*, *> ?: if (name in optionalStoreNames) continue else error("Missing $name")
             val clean = linkedMapOf<String, Any?>()
             values.forEach { (key, value) ->
                 require(key is String) { "Invalid preference key" }
