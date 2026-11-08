@@ -63,7 +63,7 @@ internal fun LostBooksDialog(entries: List<ComicEntry>, onDismiss: () -> Unit) {
                         }
                     }
                     TextButton(onClick = {
-                        selectedLost?.let(LostBookStore::forget)
+                        selectedLost?.let { LostBookStore.forget(it.id) }
                         lost = LostBookStore.list()
                         selectedLost = null
                         target = null
