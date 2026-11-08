@@ -88,6 +88,9 @@ object LibraryScanner {
                         }
                     }
                 }
+            }.onFailure { error ->
+                // Cancellation must propagate; a stale scan may not continue walking or publish progress.
+                if (error is java.util.concurrent.CancellationException) throw error
             }
         }
         return found.values.sortedBy(Uri::toString)
