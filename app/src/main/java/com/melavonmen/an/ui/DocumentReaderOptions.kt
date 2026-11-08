@@ -52,6 +52,20 @@ internal fun DocumentReaderOptions(
                         onValueChange = { onChange(current.copy(lineHeightSp = it.toInt())) },
                         valueRange = (current.fontSizeSp + 2).toFloat()..64f,
                     )
+                    Text("字体")
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("default" to "系统", "serif" to "衬线", "sans" to "无衬线", "mono" to "等宽").forEach { (key, label) ->
+                            TextButton(onClick = { onChange(current.copy(fontFamily = key)) }) {
+                                Text((if (current.fontFamily == key) "✓ " else "") + label)
+                            }
+                        }
+                    }
+                    Text("段间距 · ${current.paragraphSpacingDp} dp")
+                    Slider(
+                        value = current.paragraphSpacingDp.toFloat(),
+                        onValueChange = { onChange(current.copy(paragraphSpacingDp = it.toInt())) },
+                        valueRange = 0f..36f,
+                    )
                     Text("左右页边距 · ${current.horizontalMarginDp} dp")
                     Slider(
                         value = current.horizontalMarginDp.toFloat(),
