@@ -71,7 +71,6 @@ import com.melavonmen.an.data.TagCatalog
 import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.mediaKind
-import com.melavonmen.an.data.MediaKind
 import com.melavonmen.an.data.DocumentProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
