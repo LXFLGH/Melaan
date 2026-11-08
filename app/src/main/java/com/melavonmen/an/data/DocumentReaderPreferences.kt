@@ -8,6 +8,8 @@ data class DocumentReaderPreferences(
     val seamless: Boolean = true,
     val fontSizeSp: Int = 18,
     val lineHeightSp: Int = 30,
+    val paragraphSpacingDp: Int = 14,
+    val fontFamily: String = "default",
     val horizontalMarginDp: Int = 20,
     val nightMode: Boolean = false,
     val pdfFitWidth: Boolean = false,
@@ -17,6 +19,8 @@ data class DocumentReaderPreferences(
         fontSizeSp = fontSizeSp.coerceIn(12, 36),
         lineHeightSp = lineHeightSp.coerceIn(fontSizeSp.coerceIn(12, 36) + 2, 64),
         horizontalMarginDp = horizontalMarginDp.coerceIn(0, 48),
+        paragraphSpacingDp = paragraphSpacingDp.coerceIn(0, 36),
+        fontFamily = fontFamily.takeIf { it in setOf("default", "serif", "sans", "mono") } ?: "default",
     )
 }
 
@@ -29,6 +33,8 @@ object DocumentReaderPreferencesStore {
             seamless = p.getBoolean("seamless", true),
             fontSizeSp = p.getInt("font_sp", 18),
             lineHeightSp = p.getInt("line_sp", 30),
+            paragraphSpacingDp = p.getInt("paragraph_dp", 14),
+            fontFamily = p.getString("font_family", "default") ?: "default",
             horizontalMarginDp = p.getInt("margin_dp", 20),
             nightMode = p.getBoolean("night", false),
             pdfFitWidth = p.getBoolean("pdf_fit_width", false),
@@ -42,6 +48,8 @@ object DocumentReaderPreferencesStore {
             .putBoolean("seamless", v.seamless)
             .putInt("font_sp", v.fontSizeSp)
             .putInt("line_sp", v.lineHeightSp)
+            .putInt("paragraph_dp", v.paragraphSpacingDp)
+            .putString("font_family", v.fontFamily)
             .putInt("margin_dp", v.horizontalMarginDp)
             .putBoolean("night", v.nightMode)
             .putBoolean("pdf_fit_width", v.pdfFitWidth)
