@@ -39,7 +39,7 @@ object LibraryRepository {
 
     const val PREF_KEY_TREE_URIS = "tree_uris"
     const val PREF_KEY_CHAPTER_PARSER_VERSION = "chapter_parser_version"
-    const val CHAPTER_PARSER_VERSION = 4
+    const val CHAPTER_PARSER_VERSION = 5
 
     private const val MAX_OPEN_READERS = 4
 
@@ -277,12 +277,17 @@ object LibraryRepository {
     suspend fun readTextChapter(id: String, chapterIndex: Int): String {
         val entry = byId(id) ?: throw EntryNotFound(id)
         require(isTxtFormat(entry.format)) { "not a TXT book: $id" }
-        val bytes = withContext(Dispatchers.IO) { readDocumentBytes(Uri.parse(entry.uri)) }
-        val text = TextDocument.decode(bytes)
-        val chapters = TextDocument.splitChapters(text)
-        return chapters.getOrNull(chapterIndex)?.content
-            ?: chapters.firstOrNull()?.content
-            ?: ""
+        val chapter = entry.chapters.getOrNull(chapterIndex)
+            ?: throw IndexOutOfBoundsException("TXT chapter $chapterIndex is missing")
+        val span = chapter.pageEntryPaths.firstOrNull()?.let(TextDocumentIndex::parse)
+        return withContext(Dispatchers.IO) {
+            val context = appContext ?: error("LibraryRepository not initialized")
+            context.contentResolver.openInputStream(Uri.parse(entry.uri))?.use { stream ->
+                if (span != null) TextDocumentIndex.read(stream, span)
+                else TextDocument.splitChapters(TextDocument.decode(stream.readBytes()))
+                    .getOrNull(chapterIndex)?.content.orEmpty()
+            } ?: throw IOException("cannot open TXT: ${entry.title}")
+        }
     }
 
     fun cacheSizeBytes(): Long = runCatching {
@@ -480,10 +485,9 @@ object LibraryRepository {
     private fun buildTextEntry(uri: Uri, displayName: String): BuildResult {
         val context = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
-        val bytes = readDocumentBytes(uri)
-        val text = TextDocument.decode(bytes)
-        val chapters = TextDocument.splitChapters(text)
-        if (text.isBlank()) {
+        val chapters = context.contentResolver.openInputStream(uri)?.use(TextDocumentIndex::index)
+            ?: throw IOException("cannot open TXT: $displayName")
+        if (chapters.isEmpty()) {
             return BuildResult(null, ScanWarning(displayName, skippedReason = "TXT 文件为空"))
         }
         return BuildResult(
@@ -496,7 +500,7 @@ object LibraryRepository {
                 format = "txt",
                 isSerial = chapters.size > 1,
                 chapters = chapters.map { chapter ->
-                    ChapterRef(chapter.title, listOf("txt"), null)
+                    ChapterRef(chapter.title, listOf(chapter.path()), null)
                 },
                 coverEntryName = null,
                 sizeBytes = fileLength(context, uri)
