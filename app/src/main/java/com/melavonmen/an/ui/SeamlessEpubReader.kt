@@ -75,6 +75,9 @@ internal fun SeamlessEpubReader(
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val uri = request.url
                     if (!isSafeEpubUri(uri)) return true
+                    // A newly created sandbox iframe must be allowed to load its own chapter.
+                    // Only user-initiated navigation is routed to the book-level chapter state.
+                    if (!request.isForMainFrame && !request.hasGesture()) return false
                     val path = uri.path?.trimStart('/')
                     val target = entry.chapters.indexOfFirst { it.pageEntryPaths.firstOrNull() == path }
                     if (target >= 0) {
