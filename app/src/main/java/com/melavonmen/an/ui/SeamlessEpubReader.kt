@@ -160,93 +160,150 @@ internal fun SeamlessEpubReader(
           const frames=new Map();
           let first=Math.max(0,target-1),last=Math.min(urls.length-1,target+1);
           let active=target,restored=false,scheduled=false;
+          // A single RAF per frame remeasurement: never re-apply all paragraph styles
+          // from a ResizeObserver callback (that previously caused layout thrashing).
+          let kineticFrame=0;
+          function cancelKinetic() {
+            if(kineticFrame)cancelAnimationFrame(kineticFrame);
+            kineticFrame=0;
+          }
+          function applyReaderStyles(frame) {
+            let doc;
+            try { doc=frame.contentDocument; } catch(e) { return; }
+            if(!doc || !doc.body || doc.body.dataset.melaanStyled==='1')return;
+            const body=doc.body;
+            body.dataset.melaanStyled='1';
+            body.style.fontSize='${preferences.fontSizeSp}px';
+            body.style.lineHeight='${preferences.lineHeightSp / preferences.fontSizeSp.toFloat()}';
+            body.style.padding='0 ${preferences.horizontalMarginDp}px';
+            body.style.fontFamily='${when(preferences.fontFamily) { "serif" -> "serif"; "sans" -> "sans-serif"; "mono" -> "monospace"; else -> "inherit" }}';
+            body.style.color='$fore';
+            body.style.backgroundColor='$back';
+            body.style.overflowY='hidden';
+            body.style.touchAction='none';
+            doc.documentElement.style.overflowY='hidden';
+            doc.documentElement.style.touchAction='none';
+            for(const paragraph of doc.querySelectorAll('p')) {
+              paragraph.style.marginBottom='${preferences.paragraphSpacingDp}px';
+            }
+          }
           function measure(frame) {
             try {
               const doc=frame.contentDocument;
-              if(!doc || !doc.documentElement) return;
+              if(!doc || !doc.documentElement)return;
               const body=doc.body;
-              if(body) {
-                body.style.fontSize='${preferences.fontSizeSp}px';
-                body.style.lineHeight='${preferences.lineHeightSp / preferences.fontSizeSp.toFloat()}';
-                body.style.padding='0 ${preferences.horizontalMarginDp}px';
-                body.style.fontFamily='${when(preferences.fontFamily) { "serif" -> "serif"; "sans" -> "sans-serif"; "mono" -> "monospace"; else -> "inherit" }}';
-                for(const paragraph of doc.querySelectorAll('p'))
-                  paragraph.style.marginBottom='${preferences.paragraphSpacingDp}px';
-                body.style.color='$fore';
-                body.style.backgroundColor='$back';
-                body.style.overflowY='hidden';
-              }
-              doc.documentElement.style.overflowY='hidden';
-              const contentHeight=Math.max(
-                120,
+              const height=Math.ceil(Math.max(120,
                 doc.documentElement.scrollHeight,
-                body ? body.scrollHeight : 0
-              );
-              const height=Math.ceil(contentHeight);
-              // Never add fixed pixels to the current viewport height: an iframe
-              // with height:100% would grow on every measurement / image load.
-              if(Math.abs(frame.offsetHeight-height)>2)
-                frame.style.height=height+'px';
+                body ? body.scrollHeight : 0));
+              if(Math.abs(frame.offsetHeight-height)>2)frame.style.height=height+'px';
             } catch(e) {
-              if(frame.offsetHeight<120) frame.style.height='120px';
+              if(frame.offsetHeight<120)frame.style.height='120px';
             }
           }
-          // Android WebView sends gestures to the iframe beneath the finger. A child
-          // document can swallow vertical swipes even when its iframe is expanded to
-          // its full height. Forward them to the outer, single chapter scroller.
+          function scheduleMeasure(frame) {
+            if(frame._measureFrame)return;
+            frame._measureFrame=requestAnimationFrame(function(){
+              frame._measureFrame=0;
+              const oldHeight=frame.offsetHeight;
+              measure(frame);
+              if(restored && Math.abs(oldHeight-frame.offsetHeight)>2)update();
+            });
+          }
+          // Nested iframes intercept Android WebView touches. Use a captured
+          // single-finger gesture relay with coalesced scroll and kinetic continuation.
+          // Short taps are not consumed, so links and reader UI tapping still work.
           function attachChildScrollRelay(frame) {
             let doc;
             try { doc=frame.contentDocument; } catch(e) { return; }
-            if(!doc || !doc.documentElement || doc._melaanScrollRelay) return;
+            if(!doc || !doc.documentElement || doc._melaanScrollRelay)return;
             doc._melaanScrollRelay=true;
             frame.setAttribute('scrolling','no');
             doc.documentElement.style.overflowY='hidden';
-            if(doc.body) doc.body.style.overflowY='hidden';
+            if(doc.body)doc.body.style.overflowY='hidden';
 
-            let lastY=null;
+            let lastY=null,lastAt=0,velocity=0,dragged=false;
+            let queuedDelta=0,scrollFrame=0;
+            function flushScroll() {
+              scrollFrame=0;
+              if(queuedDelta!==0)window.scrollBy(0,queuedDelta);
+              queuedDelta=0;
+            }
+            function scrollBy(delta) {
+              queuedDelta+=delta;
+              if(!scrollFrame)scrollFrame=requestAnimationFrame(flushScroll);
+            }
+            function fling() {
+              cancelKinetic();
+              if(!dragged || Math.abs(velocity)<0.06)return;
+              let speed=velocity;
+              let prev=performance.now();
+              function tick(now) {
+                const dt=Math.min(Math.max(now-prev,1),32);
+                prev=now;
+                speed*=Math.pow(0.91,dt/16);
+                if(Math.abs(speed)<0.018){kineticFrame=0;return;}
+                const before=window.scrollY;
+                window.scrollBy(0,speed*dt);
+                if(Math.abs(window.scrollY-before)<0.5){kineticFrame=0;return;}
+                kineticFrame=requestAnimationFrame(tick);
+              }
+              kineticFrame=requestAnimationFrame(tick);
+            }
             doc.addEventListener('touchstart',function(e) {
-              lastY=e.touches.length===1 ? e.touches[0].clientY : null;
-            },{passive:true});
+              cancelKinetic();
+              if(e.touches.length===1) {
+                lastY=e.touches[0].clientY;
+                lastAt=performance.now();
+                velocity=0;dragged=false;
+              }else lastY=null;
+            },{capture:true,passive:true});
             doc.addEventListener('touchmove',function(e) {
-              if(lastY===null || e.touches.length!==1) {lastY=null;return;}
-              const now=e.touches[0].clientY;
-              const delta=lastY-now;
-              lastY=now;
-              if(Math.abs(delta)<0.5)return;
+              if(lastY===null || e.touches.length!==1){lastY=null;return;}
+              const y=e.touches[0].clientY;
+              const delta=lastY-y;
+              const now=performance.now();
+              const elapsed=Math.max(1,now-lastAt);
+              lastY=y;lastAt=now;
+              if(Math.abs(delta)<0.2)return;
+              dragged=true;
               if(e.cancelable)e.preventDefault();
-              window.scrollBy(0,delta);
-            },{passive:false});
-            doc.addEventListener('touchend',function(){lastY=null;},{passive:true});
-            doc.addEventListener('touchcancel',function(){lastY=null;},{passive:true});
-            doc.addEventListener('wheel',function(e) {
+              // Capture before EPUB-side listeners can cancel the gesture.
+              if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+              velocity=velocity*0.65+Math.max(-3,Math.min(3,delta/elapsed))*0.35;
+              scrollBy(delta);
+            },{capture:true,passive:false});
+            doc.addEventListener('touchend',function(e){
+              if(scrollFrame){cancelAnimationFrame(scrollFrame);flushScroll();}
+              fling();
+              lastY=null;
+            },{capture:true,passive:true});
+            doc.addEventListener('touchcancel',function(){
+              if(scrollFrame){cancelAnimationFrame(scrollFrame);flushScroll();}
+              cancelKinetic();lastY=null;
+            },{capture:true,passive:true});
+            doc.addEventListener('wheel',function(e){
               if(e.cancelable)e.preventDefault();
-              window.scrollBy(e.deltaX,e.deltaY);
-            },{passive:false});
+              scrollBy(e.deltaY);
+            },{capture:true,passive:false});
 
-            // Restore the outer viewport when a browser forcibly scrolls a child frame.
-            doc.addEventListener('scroll',function() {
+            // Some EPUB CSS triggers a child scroll despite overflow:hidden.
+            doc.addEventListener('scroll',function(){
               const child=doc.scrollingElement;
-              if(child && child.scrollTop) {
-                const dy=child.scrollTop;
+              if(child && child.scrollTop){
+                const delta=child.scrollTop;
                 child.scrollTop=0;
-                window.scrollBy(0,dy);
+                scrollBy(delta);
               }
             },{passive:true});
 
-            // Late image/font layout must expand the iframe, otherwise WebView
-            // leaves a tiny internal scroll area that traps vertical swipes.
             for(const img of doc.images)img.addEventListener('load',function(){
-              measure(frame);if(restored)update();
+              scheduleMeasure(frame);
             },{passive:true});
             if(doc.fonts && doc.fonts.ready)doc.fonts.ready.then(function(){
-              measure(frame);if(restored)update();
+              scheduleMeasure(frame);
             });
             if(window.ResizeObserver && doc.body){
-              const observer=new ResizeObserver(function(){
-                const height=frame.offsetHeight;
-                measure(frame);
-                if(restored && Math.abs(frame.offsetHeight-height)>2)update();
-              });
+              const observer=new ResizeObserver(function(){scheduleMeasure(frame);});
               observer.observe(doc.body);
               frame._melaanObserver=observer;
             }
@@ -261,6 +318,7 @@ internal fun SeamlessEpubReader(
             frame.loading='eager';
             frame.addEventListener('load',function(){
               const original=frame.offsetHeight;
+              applyReaderStyles(frame);
               measure(frame);
               attachChildScrollRelay(frame);
               if(prepend&&restored&&index<active)window.scrollBy(0,frame.offsetHeight-original);
