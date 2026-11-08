@@ -66,6 +66,9 @@ import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.ProgressStore
 import com.melavonmen.an.data.chapterNoun
+import com.melavonmen.an.data.DocumentProgress
+import com.melavonmen.an.data.MediaKind
+import com.melavonmen.an.data.mediaKind
 import com.melavonmen.an.data.ReadingProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -294,7 +297,9 @@ private fun DetailHero(entry: ComicEntry, onBack: () -> Unit, onRequestDelete: (
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${entry.chapters.size} ${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)} · ${entry.format.uppercase()}",
+                    (if (mediaKind(entry.format) == MediaKind.PDF) "${entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 0} 页"
+                     else "${entry.chapters.size} ${chapterNoun(entry.format)}") +
+                        " · ${formatSize(entry.sizeBytes)} · ${entry.format.uppercase()}",
                     fontSize = 10.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 16.sp
@@ -384,8 +389,13 @@ private fun ProgressBlock(entry: ComicEntry, progress: ReadingProgress?) {
             val percent = progress.percent.coerceIn(0, 100)
             Bar((percent / 100f).coerceIn(0f, 1f))
             Spacer(Modifier.height(10.dp))
+            val position = when (mediaKind(entry.format)) {
+                MediaKind.PDF -> "第 ${progress.pageIndex + 1} / ${entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1} 页"
+                MediaKind.EPUB, MediaKind.TXT -> "${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} 章 · 章内 ${progress.pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS) / 100}%"
+                MediaKind.COMIC -> "${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} ${chapterNoun(entry.format)} · 第 ${progress.pageIndex + 1} 页"
+            }
             Text(
-                "已读 $percent% · 读至${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} ${chapterNoun(entry.format)} · 第 ${progress.pageIndex + 1} 页",
+                "已读 $percent% · 读至$position",
                 fontSize = 11.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
