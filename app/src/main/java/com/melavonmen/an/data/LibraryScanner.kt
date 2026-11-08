@@ -31,7 +31,11 @@ object LibraryScanner {
     // A provider can expose a malformed/cyclic tree; this still permits deeply nested libraries.
     private const val MAX_DEPTH = 64
 
-    fun findArchiveUris(resolver: ContentResolver, treeUri: Uri): List<Uri> {
+    fun findArchiveUris(
+        resolver: ContentResolver,
+        treeUri: Uri,
+        onFound: ((Uri, String) -> Unit)? = null,
+    ): List<Uri> {
         val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
         val pending = ArrayDeque<Pair<String, Int>>()
         val visited = HashSet<String>()
@@ -78,10 +82,15 @@ object LibraryScanner {
                             val uri = runCatching {
                                 DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                             }.getOrNull() ?: continue
-                            found.putIfAbsent(uri.toString(), uri)
+                            if (found.putIfAbsent(uri.toString(), uri) == null) {
+                                onFound?.invoke(uri, displayName)
+                            }
                         }
                     }
                 }
+            }.onFailure { error ->
+                // Cancellation must propagate; a stale scan may not continue walking or publish progress.
+                if (error is java.util.concurrent.CancellationException) throw error
             }
         }
         return found.values.sortedBy(Uri::toString)

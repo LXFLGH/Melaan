@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "id": "data-archive",
-  "responsibilities": "统一本地书籍索引：7z/ZIP/CBZ/RAR/CBR 漫画归档流式只读，EPUB/PDF/TXT 本地书籍解析与按需读取；外层归档内的 ZIP/CBZ 子归档延迟到选中章节时解析；文档页/漫画页不落盘。负责 SAF 递归扫描、元数据容错、扫描警告、封面专用缓存、最小书架索引、章节/页编排、阅读进度与书签持久化；TXT 章节流式偏移索引、书籍元数据本地覆盖层、移动文件手动重新关联、SAF 增量扫描与电子书搜索",
+  "responsibilities": "统一本地书籍索引：7z/ZIP/CBZ/RAR/CBR 漫画归档流式只读，EPUB/PDF/TXT 本地书籍解析与按需读取；外层归档内的 ZIP/CBZ 子归档延迟到选中章节时解析；文档页/漫画页不落盘。负责 SAF 递归扫描、元数据容错、扫描警告、封面专用缓存、最小书架索引、章节/页编排、阅读进度与书签持久化；TXT 章节流式偏移索引、书籍元数据本地覆盖层、移动文件手动重新关联、SAF 增量扫描与电子书搜索；异步 SAF 目录发现与章节索引的两阶段进度流和取消处理",
   "source_paths": [
     "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
     "app/src/main/java/com/melavonmen/an/data/Metadata.kt",
@@ -17,7 +17,8 @@
     "app/src/main/java/com/melavonmen/an/data/DocumentSearch.kt",
     "app/src/main/java/com/melavonmen/an/data/DocumentReaderPreferences.kt",
     "app/src/main/java/com/melavonmen/an/data/UserBookMetadataStore.kt",
-    "app/src/main/java/com/melavonmen/an/data/LostBookStore.kt"
+    "app/src/main/java/com/melavonmen/an/data/LostBookStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/LibraryScanProgress.kt"
   ],
   "entrypoints": [
     "LibraryRepository.scanAndIndex",
@@ -47,7 +48,8 @@
     "PdfDocumentSession",
     "PdfPages",
     "BookmarkStore",
-    "LibraryMaintenance"
+    "LibraryMaintenance",
+    "LibraryRepository.scanProgress / startScan"
   ],
   "data_structures": [
     {

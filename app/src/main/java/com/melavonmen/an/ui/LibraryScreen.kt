@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import com.melavonmen.an.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -179,8 +180,9 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
     var showLostFiles by remember { mutableStateOf(false) }
     var removingDuplicate by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val scanProgress by LibraryRepository.scanProgress.collectAsState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(scanProgress.completedAtMillis) {
         val data = LibrarySnapshot.load()
         progressById = data.progressById
         comics = data.comics
@@ -257,13 +259,22 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
             }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
-            Text("检查疑似重复作品", color = Accent, modifier = Modifier.clickable {
-                duplicateCandidates = LibraryMaintenance.duplicateGroups(comics)
-                duplicateDialog = true
-            }.padding(bottom = 4.dp))
-            Text("重新关联移动或丢失的书籍", color = Accent, modifier = Modifier.clickable {
-                showLostFiles = true
-            }.padding(vertical = 4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "检查疑似重复作品",
+                    color = Accent,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        duplicateCandidates = LibraryMaintenance.duplicateGroups(comics)
+                        duplicateDialog = true
+                    }.padding(vertical = 8.dp),
+                )
+                Text(
+                    "重新关联移动或丢失的书籍",
+                    color = Accent,
+                    modifier = Modifier.fillMaxWidth().clickable { showLostFiles = true }
+                        .padding(vertical = 8.dp),
+                )
+            }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

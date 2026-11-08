@@ -40,11 +40,11 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
+import com.melavonmen.an.data.LibraryScanPhase
 import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ReadingProgress
 import com.melavonmen.an.data.isPdfFormat
@@ -73,8 +74,7 @@ import com.melavonmen.an.data.DocumentReaderPreferencesStore
 import com.melavonmen.an.data.LocalBackup
 import com.melavonmen.an.R
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+ import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
@@ -157,9 +157,9 @@ fun SettingsScreen(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val compact = LocalConfiguration.current.screenWidthDp < 600
-    val scope = rememberCoroutineScope()
+    val scanProgress by LibraryRepository.scanProgress.collectAsState()
+    val scanning = scanProgress.isRunning
     var treeUris by remember { mutableStateOf(emptyList<String>()) }
-    var scanning by remember { mutableStateOf(false) }
     var indexedCount by remember { mutableIntStateOf(0) }
     var readPages by remember { mutableIntStateOf(0) }
     var storedDataBytes by remember { mutableStateOf(0L) }
@@ -203,26 +203,28 @@ fun SettingsScreen(
         }
     }
 
-    fun rescan(uris: List<String>) {
-        scanning = true
-        scope.launch {
-            val report = withContext(Dispatchers.IO) {
-                runCatching { LibraryRepository.scan(uris.map(Uri::parse)) }.getOrNull()
-            }
-            if (report != null) {
-                prefs(context).edit()
-                    .putInt(LibraryRepository.PREF_KEY_CHAPTER_PARSER_VERSION, LibraryRepository.CHAPTER_PARSER_VERSION)
-                    .apply()
-                CoverImageCache.clear()
-            }
+    // Scans belong to the repository's IO scope, not the lifetime of this tab.
+    // Refresh visible counts when it completes, even if the user changed tabs mid-scan.
+    LaunchedEffect(scanProgress.completedAtMillis) {
+        if (scanProgress.completedAtMillis == 0L) return@LaunchedEffect
+        if (scanProgress.phase == LibraryScanPhase.COMPLETED) {
+            prefs(context).edit()
+                .putInt(LibraryRepository.PREF_KEY_CHAPTER_PARSER_VERSION, LibraryRepository.CHAPTER_PARSER_VERSION)
+                .apply()
+            withContext(Dispatchers.IO) { CoverImageCache.clear() }
             val data = LibrarySnapshot.load()
             indexedCount = data.comics.size
             readPages = computeReadPages(data.comics, data.progressById)
-            storedDataBytes = LibraryRepository.cacheSizeBytes()
-            scanning = false
-            scanReport = report
-            if (report?.warnings?.isNotEmpty() == true) infoDialog = "scan"
+            storedDataBytes = withContext(Dispatchers.IO) { LibraryRepository.cacheSizeBytes() }
+            scanReport = scanProgress.report
+            if (scanProgress.report?.warnings?.isNotEmpty() == true) infoDialog = "scan"
+        } else if (scanProgress.phase == LibraryScanPhase.FAILED) {
+            infoDialog = "scan_error"
         }
+    }
+
+    fun rescan(uris: List<String>) {
+        LibraryRepository.startScan(uris.map(Uri::parse))
     }
 
     fun saveTreeUris(uris: List<String>) {
@@ -306,12 +308,15 @@ fun SettingsScreen(
                     "reader" -> "阅读设置"
                     "backup" -> "备份与恢复"
                     "scan" -> "扫描完成 · ${scanReport?.importedCount ?: 0}/${scanReport?.archiveCount ?: 0} 部已导入"
+                    "scan_error" -> "扫描失败"
                     "licenses" -> "授权信息"
                     else -> "缓存与数据库"
                 })
             },
             text = {
-                if (kind == "scan") {
+                if (kind == "scan_error") {
+                    Text(scanProgress.error ?: "请检查目录访问权限后重试")
+                } else if (kind == "scan") {
                     val warnings = scanReport?.warnings.orEmpty()
                     val lines = warnings.take(10).joinToString("\n") { warning ->
                         buildString {
@@ -467,9 +472,26 @@ fun SettingsScreen(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TextButton(onClick = { picker.launch(null) }) { Text("添加文件夹") }
-                TextButton(onClick = {
-                    if (treeUris.isEmpty()) picker.launch(null) else rescan(treeUris)
-                }) { Text(if (scanning) "扫描中…" else "重新扫描") }
+                TextButton(
+                    enabled = !scanning,
+                    onClick = { if (treeUris.isEmpty()) picker.launch(null) else rescan(treeUris) },
+                ) { Text(if (scanning) "扫描中…" else "重新扫描") }
+            }
+            if (scanning) {
+                val status = when (scanProgress.phase) {
+                    LibraryScanPhase.DISCOVERING -> "正在查找文件 · 已发现 ${scanProgress.discoveredCount} 部"
+                    LibraryScanPhase.INDEXING -> "发现 ${scanProgress.discoveredCount} 部 · 已解析 ${scanProgress.processedCount} 部 · 已导入 ${scanProgress.importedCount} 部"
+                    else -> "正在扫描书库"
+                }
+                Text(status, fontSize = 11.sp, color = Accent, modifier = Modifier.padding(top = 8.dp))
+                scanProgress.currentFile?.takeIf(String::isNotBlank)?.let { file ->
+                    Text("当前：$file", fontSize = 10.sp, color = SubText, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                }
+                if (scanProgress.phase == LibraryScanPhase.INDEXING && scanProgress.discoveredCount > 0) {
+                    Text("索引进度 ${(scanProgress.processingFraction * 100).toInt()}%",
+                        fontSize = 10.sp, color = SubText)
+                }
             }
             Text(
                 "已索引 $indexedCount 部 · 支持 EPUB / PDF / TXT / 7z / ZIP",

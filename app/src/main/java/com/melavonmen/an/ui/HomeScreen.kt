@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibrarySnapshot
+import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.ReadingProgress
 import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.DocumentProgress
@@ -90,7 +92,8 @@ fun HomeScreen(onOpenComic: (String) -> Unit, onRead: (String) -> Unit) {
     var all by remember { mutableStateOf(retained?.comics.orEmpty()) }
     var progressById by remember { mutableStateOf(retained?.progressById.orEmpty()) }
     var latest by remember { mutableStateOf(retained?.latest) }
-    LaunchedEffect(Unit) {
+    val scanProgress by LibraryRepository.scanProgress.collectAsState()
+    LaunchedEffect(scanProgress.completedAtMillis) {
         val data = LibrarySnapshot.load()
         progressById = data.progressById
         latest = data.latest
