@@ -86,6 +86,9 @@ object LibraryRepository {
         val ctx = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
         val previousEntries = entries
+        val previousByUri = previousEntries.associateBy(ComicEntry::uri)
+        val stamps = ctx.getSharedPreferences("melaan_scan_stamps", Context.MODE_PRIVATE)
+        val updatedStamps = LinkedHashMap<String, String>()
         val uniqueUris = LinkedHashMap<String, Uri>()
         val warnings = ArrayList<ScanWarning>()
         val failedTrees = ArrayList<Uri>()
@@ -112,11 +115,23 @@ object LibraryRepository {
         for (uri in uris) {
             val name = displayName(uri)
             try {
+                val size = fileLength(ctx, uri)
+                val modified = fileModified(ctx, uri)
+                val signature = if (size > 0 && modified > 0) "$size:$modified" else null
+                val previous = previousByUri[uri.toString()]
+                if (previous != null && previous.sizeBytes == size && signature != null &&
+                    signature == stamps.getString(uri.toString(), null)
+                ) {
+                    built.add(previous)
+                    updatedStamps[uri.toString()] = signature
+                    continue
+                }
                 val result = buildEntry(uri, name)
                 if (result.entry == null) {
                     warnings += result.warning ?: ScanWarning(name, skippedReason = "没有可读取的书页或章节")
                 } else {
                     built.add(result.entry)
+                    if (signature != null) updatedStamps[uri.toString()] = signature
                     result.warning?.let(warnings::add)
                 }
             } catch (e: CancellationException) {
@@ -145,6 +160,9 @@ object LibraryRepository {
             for (e in built) idIndex[e.id] = e
             entries = built
         }
+        stamps.edit().clear().also { editor ->
+            updatedStamps.forEach { (key, value) -> editor.putString(key, value) }
+        }.apply()
         if (preserveCoverCache) {
             val refreshed = built.associateBy { it.id }
             previousEntries.forEach { old ->
@@ -510,6 +528,16 @@ object LibraryRepository {
             null
         )
     }
+
+    private fun fileModified(context: Context, uri: Uri): Long = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+            null, null, null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else 0L
+        } ?: 0L
+    }.getOrDefault(0L)
 
     private fun fileLength(context: Context, uri: Uri): Long = runCatching {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
