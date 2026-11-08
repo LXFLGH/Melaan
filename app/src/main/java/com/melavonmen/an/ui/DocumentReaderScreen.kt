@@ -236,6 +236,7 @@ fun DocumentReaderScreen(
             chapter = chapter,
             chapterCount = chapterCount,
             pdfPageCount = entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1,
+            pdfDoublePage = isPdf && preferences.pdfTwoPage && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE,
             page = page,
             onChapterChange = { seekChapter(it) },
             onPageChange = { page = it },
@@ -320,6 +321,7 @@ private fun ReaderBottomBar(
     chapter: Int,
     chapterCount: Int,
     pdfPageCount: Int,
+    pdfDoublePage: Boolean,
     page: Int,
     onChapterChange: (Int) -> Unit,
     onPageChange: (Int) -> Unit,
@@ -328,6 +330,10 @@ private fun ReaderBottomBar(
     val isPdf = isPdfFormat(format)
     val position = if (isPdf) page else chapter
     val count = if (isPdf) pdfPageCount.coerceAtLeast(1) else chapterCount
+    val spreadStart = if (isPdf && pdfDoublePage && page > 0) 1 + ((page - 1) / 2) * 2 else page
+    val pdfPrevious = if (!pdfDoublePage) (page - 1).coerceAtLeast(0)
+        else if (spreadStart <= 1) 0 else spreadStart - 2
+    val pdfNext = if (!pdfDoublePage) page + 1 else if (spreadStart == 0) 1 else spreadStart + 2
     Column(
         Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
@@ -342,7 +348,7 @@ private fun ReaderBottomBar(
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             DocumentNavButton(Icons.AutoMirrored.Filled.NavigateBefore, "上一${if (isPdf) "页" else "章"}", position > 0) {
-                if (isPdf) onPageChange(position - 1) else onChapterChange(chapter - 1)
+                if (isPdf) onPageChange(pdfPrevious) else onChapterChange(chapter - 1)
             }
             Text(
                 if (isPdf) "第 ${position + 1} / $count 页" else "第 ${position + 1} / $count 章",
@@ -351,8 +357,8 @@ private fun ReaderBottomBar(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            DocumentNavButton(Icons.AutoMirrored.Filled.NavigateNext, "下一${if (isPdf) "页" else "章"}", position < count - 1) {
-                if (isPdf) onPageChange(position + 1) else onChapterChange(chapter + 1)
+            DocumentNavButton(Icons.AutoMirrored.Filled.NavigateNext, "下一${if (isPdf) "页" else "章"}", if (isPdf) pdfNext < count else position < count - 1) {
+                if (isPdf) onPageChange(pdfNext) else onChapterChange(chapter + 1)
             }
         }
     }
