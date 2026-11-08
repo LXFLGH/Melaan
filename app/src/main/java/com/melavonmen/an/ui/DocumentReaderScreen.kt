@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
@@ -39,6 +39,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -79,6 +80,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -299,44 +301,56 @@ private fun PdfContent(
     entry: ComicEntry,
     page: Int,
     onPageChange: (Int) -> Unit,
-    onProgressChange: (Int) -> Unit,
 ) {
-    val sessionState = remember(entry.id) { mutableStateOf<Result<PdfDocumentSession>?>(null) }
-    LaunchedEffect(entry.id) {
-        sessionState.value = runCatching {
+    var retry by remember(entry.id) { mutableIntStateOf(0) }
+    val sessionResult by produceState<Result<PdfDocumentSession>?>(initialValue = null, entry.id, retry) {
+        value = runCatching {
             withContext(Dispatchers.IO) { LibraryRepository.openPdfSession(entry.id) }
         }
     }
-    val result = sessionState.value
-    val session = result?.getOrNull()
+    val session = sessionResult?.getOrNull()
     androidx.compose.runtime.DisposableEffect(session) {
         onDispose { session?.close() }
     }
 
     when {
-        result == null -> DocumentLoading()
-        result.isFailure -> DocumentError(result.exceptionOrNull()?.message.orEmpty().ifBlank { "无法打开 PDF" })
-        session == null -> DocumentLoading()
+        sessionResult == null -> DocumentLoading()
+        sessionResult!!.isFailure -> DocumentError(
+            sessionResult!!.exceptionOrNull()?.message ?: "无法打开 PDF",
+            onRetry = { retry++ },
+        )
+        session == null -> DocumentError("无法打开 PDF", onRetry = { retry++ })
         else -> {
-            val pageCount = session.pageCount
-            LaunchedEffect(pageCount) {
-                if (page >= pageCount) onPageChange((pageCount - 1).coerceAtLeast(0))
-            }
-            val bitmap by produceState<Bitmap?>(initialValue = null, session, page) {
-                value = withContext(Dispatchers.IO) {
-                    runCatching { PdfPages.renderPage(session, page, targetWidth = 1080) }.getOrNull()
+            LaunchedEffect(session.pageCount, page) {
+                if (page !in 0 until session.pageCount) {
+                    onPageChange(page.coerceIn(0, (session.pageCount - 1).coerceAtLeast(0)))
                 }
             }
-            val image = bitmap
-            if (image != null) {
-                Image(
-                    bitmap = image.asImageBitmap(),
+            val bitmapResult by produceState<Result<Bitmap>?>(initialValue = null, session, page) {
+                value = runCatching {
+                    withContext(Dispatchers.IO) {
+                        PdfPages.renderPage(session, page, targetWidth = 1080)
+                            ?: error("PDF 页码不在有效范围内")
+                    }
+                }
+            }
+            val bitmap = bitmapResult?.getOrNull()
+            androidx.compose.runtime.DisposableEffect(bitmap) {
+                onDispose { bitmap?.recycle() }
+            }
+            when {
+                bitmapResult == null -> DocumentLoading()
+                bitmapResult!!.isFailure -> DocumentError(
+                    bitmapResult!!.exceptionOrNull()?.message ?: "无法渲染 PDF 页面",
+                    onRetry = { retry++ },
+                )
+                bitmap != null -> Image(
+                    bitmap = bitmap.asImageBitmap(),
                     contentDescription = "PDF 第 ${page + 1} 页",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit,
                 )
-            } else {
-                DocumentLoading()
+                else -> DocumentError("PDF 页面为空", onRetry = { retry++ })
             }
         }
     }
@@ -347,19 +361,33 @@ private fun PdfContent(
 private fun EpubContent(
     entry: ComicEntry,
     chapter: Int,
+    restoreScrollUnits: Int,
     onProgressChange: (Int) -> Unit,
 ) {
     val context = LocalContext.current
     val chapterPath = entry.chapters.getOrNull(chapter)?.pageEntryPaths?.firstOrNull().orEmpty()
     val baseUrl = remember(chapterPath) { "https://melaan.epub/$chapterPath" }
-    val html by produceState<String?>(initialValue = null, entry.id, chapter) {
+    var retry by remember(entry.id, chapter) { mutableIntStateOf(0) }
+    val htmlResult by produceState<Result<String>?>(initialValue = null, entry.id, chapter, retry) {
         value = runCatching {
             withContext(Dispatchers.IO) {
                 String(LibraryRepository.readEpubChapter(entry.id, chapter), Charsets.UTF_8)
             }
-        }.getOrNull()
+        }
     }
-    val webView = remember(context) {
+    when {
+        htmlResult == null -> {
+            DocumentLoading()
+            return
+        }
+        htmlResult!!.isFailure -> {
+            DocumentError(htmlResult!!.exceptionOrNull()?.message ?: "EPUB 章节读取失败", onRetry = { retry++ })
+            return
+        }
+    }
+    val html = htmlResult!!.getOrThrow()
+    val webView = remember(context, entry.id, chapter, retry) {
+        var pendingRestore = true
         WebView(context).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
             settings.javaScriptEnabled = false
@@ -372,17 +400,13 @@ private fun EpubContent(
             settings.displayZoomControls = false
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                    // Allow in-book links; block everything outside the current archive.
-                    view.loadUrl(request.url.toString())
-                    return true
+                    // Only book-local navigation is allowed; never navigate to an external URL.
+                    return !isSafeEpubUri(request.url)
                 }
 
-                override fun shouldInterceptRequest(
-                    view: WebView,
-                    request: WebResourceRequest,
-                ): WebResourceResponse? {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     val url = request.url
-                    if (url.host != "melaan.epub") return emptyResponse()
+                    if (!isSafeEpubUri(url)) return emptyResponse()
                     val path = url.path?.trimStart('/') ?: return emptyResponse()
                     val bytes = runBlocking {
                         runCatching { LibraryRepository.readResourceBytes(entry.id, path) }.getOrNull()
@@ -391,66 +415,122 @@ private fun EpubContent(
                     val charset = if (mime.startsWith("text/") || mime == "application/xhtml+xml") "utf-8" else null
                     return WebResourceResponse(mime, charset, ByteArrayInputStream(bytes))
                 }
+
+                override fun onPageFinished(view: WebView, url: String?) {
+                    if (!pendingRestore) return
+                    view.post {
+                        if (!pendingRestore) return@post
+                        val scrollable = (view.contentHeight * view.scale - view.height).coerceAtLeast(0f)
+                        val fraction = restoreScrollUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)
+                        view.scrollTo(0, (scrollable * fraction / DocumentProgress.SCROLL_UNITS).toInt())
+                        pendingRestore = false
+                        onProgressChange(fraction)
+                    }
+                }
             }
             setOnScrollChangeListener { view, _, scrollY, _, _ ->
+                if (pendingRestore) return@setOnScrollChangeListener
                 val web = view as? WebView ?: return@setOnScrollChangeListener
-                val contentHeight = web.contentHeight * web.scale
-                val max = (contentHeight - web.height).coerceAtLeast(1f)
-                onProgressChange(((scrollY / max) * 100f).toInt().coerceIn(0, 100))
+                val scrollable = (web.contentHeight * web.scale - web.height).coerceAtLeast(1f)
+                onProgressChange(
+                    ((scrollY / scrollable) * DocumentProgress.SCROLL_UNITS)
+                        .toInt().coerceIn(0, DocumentProgress.SCROLL_UNITS)
+                )
             }
         }
     }
     androidx.compose.runtime.DisposableEffect(webView) {
-        onDispose { webView.destroy() }
-    }
-    LaunchedEffect(html, baseUrl) {
-        html?.let { value ->
-            webView.loadDataWithBaseURL(baseUrl, value, "application/xhtml+xml", "UTF-8", null)
+        onDispose {
+            webView.stopLoading()
+            webView.destroy()
         }
     }
-    val value = html
-    if (value == null) DocumentLoading() else AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+    LaunchedEffect(html, baseUrl, webView) {
+        webView.loadDataWithBaseURL(baseUrl, html, "application/xhtml+xml", "UTF-8", null)
+    }
+    AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+}
+
+/** External URLs and path traversal must never reach a book's local resource loader. */
+internal fun isSafeEpubUri(uri: Uri): Boolean {
+    if (uri.scheme != "https" || uri.host != "melaan.epub") return false
+    val path = uri.path ?: return false
+    return path.startsWith("/") && path.split('/').none { it == ".." || it == "." || it.contains('\\') }
 }
 
 @Composable
 private fun TextContent(
     entry: ComicEntry,
     chapter: Int,
+    restoreScrollUnits: Int,
     onProgressChange: (Int) -> Unit,
 ) {
-    val text by produceState<String?>(initialValue = null, entry.id, chapter) {
+    var retry by remember(entry.id, chapter) { mutableIntStateOf(0) }
+    val textResult by produceState<Result<String>?>(initialValue = null, entry.id, chapter, retry) {
         value = runCatching {
             withContext(Dispatchers.IO) { LibraryRepository.readTextChapter(entry.id, chapter) }
-        }.getOrNull()
-    }
-    val listState = rememberLazyListState()
-    val paragraphs = text.orEmpty().split(Regex("\\n\\s*\\n|\\r\\n\\s*\\r\\n"))
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .ifEmpty { listOf(text.orEmpty()) }
-    LaunchedEffect(listState.isScrollInProgress, listState.firstVisibleItemIndex, paragraphs.size) {
-        if (paragraphs.isNotEmpty()) {
-            val percent = ((listState.firstVisibleItemIndex + 1) * 100) / paragraphs.size
-            onProgressChange(percent.coerceIn(0, 100))
         }
     }
-    if (text == null) {
-        DocumentLoading()
-    } else {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            itemsIndexed(paragraphs) { _, paragraph ->
-                Text(
-                    paragraph,
-                    fontSize = 18.sp,
-                    lineHeight = 30.sp,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+    when {
+        textResult == null -> {
+            DocumentLoading()
+            return
+        }
+        textResult!!.isFailure -> {
+            DocumentError(textResult!!.exceptionOrNull()?.message ?: "TXT 章节读取失败", onRetry = { retry++ })
+            return
+        }
+    }
+    val text = textResult!!.getOrThrow()
+    val paragraphs = remember(text) {
+        text.split(Regex("\\n\\s*\\n|\\r\\n\\s*\\r\\n"))
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .ifEmpty { listOf(text) }
+    }
+    val listState = remember(entry.id, chapter, retry) { LazyListState() }
+    var restored by remember(entry.id, chapter, retry) { mutableStateOf(false) }
+
+    LaunchedEffect(listState, paragraphs) {
+        val units = restoreScrollUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)
+        val location = units.toFloat() / DocumentProgress.SCROLL_UNITS * paragraphs.size
+        val itemIndex = location.toInt().coerceIn(0, paragraphs.lastIndex)
+        listState.scrollToItem(itemIndex)
+        val size = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == itemIndex }?.size ?: 0
+        listState.scrollToItem(itemIndex, ((location - itemIndex) * size).toInt())
+        restored = true
+    }
+
+    LaunchedEffect(listState, paragraphs.size, restored) {
+        if (restored) {
+            snapshotFlow {
+                val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull()
+                if (visible == null) 0
+                else if (!listState.canScrollForward) DocumentProgress.SCROLL_UNITS
+                else {
+                    val fraction = if (visible.size > 0) {
+                        listState.firstVisibleItemScrollOffset.toFloat() / visible.size
+                    } else 0f
+                    (((listState.firstVisibleItemIndex + fraction) / paragraphs.size) * DocumentProgress.SCROLL_UNITS)
+                        .toInt().coerceIn(0, DocumentProgress.SCROLL_UNITS)
+                }
+            }.distinctUntilChanged().collect { onProgressChange(it) }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        itemsIndexed(paragraphs) { _, paragraph ->
+            Text(
+                paragraph,
+                fontSize = 18.sp,
+                lineHeight = 30.sp,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
         }
     }
 }
@@ -463,14 +543,22 @@ private fun DocumentLoading() {
 }
 
 @Composable
-private fun DocumentError(message: String) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+private fun DocumentError(message: String, onRetry: (() -> Unit)? = null) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
         Text(
             message,
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
         )
+        if (onRetry != null) {
+            Spacer(Modifier.height(12.dp))
+            TextButton(onClick = onRetry) { Text("重试") }
+        }
     }
 }
 
