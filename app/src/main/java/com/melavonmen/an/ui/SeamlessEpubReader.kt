@@ -119,7 +119,11 @@ internal fun SeamlessEpubReader(
         }
     }
     val html = remember(entry.id, preferences.fontSizeSp, preferences.lineHeightSp, preferences.horizontalMarginDp, preferences.nightMode) {
+        // Escape HTML delimiters so an EPUB filename cannot terminate this trusted script.
         val bookUrls = JSONArray(urls).toString()
+            .replace("<", "\\u003c")
+            .replace(">", "\\u003e")
+            .replace("&", "\\u0026")
         val fore = if (preferences.nightMode) "#e9e1d5" else "#202127"
         val back = if (preferences.nightMode) "#14171b" else "#ffffff"
         // Script is authored by the app; untrusted EPUB XHTML runs inside sandboxed iframes.
@@ -134,8 +138,8 @@ internal fun SeamlessEpubReader(
         <script nonce="melaan">
         (function(){
           const urls=$bookUrls;
-          const target=${initialChapter.coerceIn(0, (urls.size-1).coerceAtLeast(0))};
-          const initialUnits=${initialUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)};
+          let target=${initialChapter.coerceIn(0, (urls.size-1).coerceAtLeast(0))};
+          let restoreUnits=${initialUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)};
           const root=document.getElementById('chapters');
           const frames=new Map();
           let first=Math.max(0,target-1),last=Math.min(urls.length-1,target+1);
@@ -174,7 +178,7 @@ internal fun SeamlessEpubReader(
                 setTimeout(function(){
                   measure(frame);
                   const usable=Math.max(0,frame.offsetHeight-innerHeight);
-                  window.scrollTo(0,frame.offsetTop+(initialUnits/10000)*usable);
+                  window.scrollTo(0,frame.offsetTop+(restoreUnits/10000)*usable);
                   restored=true; update();
                 },150);
               }
@@ -223,17 +227,9 @@ internal fun SeamlessEpubReader(
             // reset bounded window to requested chapter; preserve navigation semantics
             root.replaceChildren();frames.clear();
             first=Math.max(0,index-1);last=Math.min(urls.length-1,index+1);
-            active=index;restored=false;
+            active=index;target=index;restoreUnits=units;restored=false;
             for(let i=first;i<=last;i++)create(i,false);
-            const t=frames.get(index);
-            if(t) t.addEventListener('load',function(){
-              setTimeout(function(){
-                measure(t);
-                const usable=Math.max(0,t.offsetHeight-innerHeight);
-                window.scrollTo(0,t.offsetTop+(units/10000)*usable);
-                restored=true;update();
-              },200);
-            },{once:true});
+            // create() restores target after its frame loads, including new seek units.
           };
           window.addEventListener('scroll',function(){
             if(scheduled)return;scheduled=true;
