@@ -176,6 +176,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
     var listName by remember { mutableStateOf("") }
     var duplicateCandidates by remember { mutableStateOf(emptyList<com.melavonmen.an.data.DuplicateGroup>()) }
     var duplicateDialog by remember { mutableStateOf(false) }
+    var showLostFiles by remember { mutableStateOf(false) }
     var removingDuplicate by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
@@ -260,6 +261,9 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 duplicateCandidates = LibraryMaintenance.duplicateGroups(comics)
                 duplicateDialog = true
             }.padding(bottom = 4.dp))
+            Text("重新关联移动或丢失的书籍", color = Accent, modifier = Modifier.clickable {
+                showLostFiles = true
+            }.padding(vertical = 4.dp))
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -509,6 +513,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
             }
         }
     }
+    if (showLostFiles) LostBooksDialog(entries = comics, onDismiss = { showLostFiles = false })
     if (createListDialog) AlertDialog(
         onDismissRequest = { createListDialog = false },
         title = { Text(stringResource(R.string.library_create_booklist)) },
