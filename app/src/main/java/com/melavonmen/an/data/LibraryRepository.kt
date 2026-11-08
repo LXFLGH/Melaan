@@ -67,6 +67,7 @@ object LibraryRepository {
         val tagStore = ComicUserTagStore(context)
         BookmarkStore.init(context)
         UserBookMetadataStore.init(context)
+        LostBookStore.init(context)
         val restored = runCatching { store.load() }.getOrDefault(emptyList())
         synchronized(lock) {
             indexStore = store
@@ -151,6 +152,8 @@ object LibraryRepository {
             }
             if (belongsToFailedTree && builtIds.add(entry.id)) built += entry
         }
+        previousEntries.filter { it.id !in builtIds }.forEach(LostBookStore::remember)
+        built.forEach { LostBookStore.forget(it.id) }
         synchronized(lock) {
             indexStore?.replace(built)
             for (r in readers.values) closeQuietly(r)
@@ -206,6 +209,42 @@ object LibraryRepository {
             coverFile(id)?.delete()
         }
         return removed
+    }
+
+    /** Explicitly rebind reading data when an old SAF URI was replaced by a moved file. */
+    fun relinkLostBook(oldId: String, newId: String): Boolean {
+        if (ExhibitionData.enabled || oldId == newId) return false
+        val target = byId(newId) ?: return false
+        val lost = LostBookStore.list().firstOrNull { it.id == oldId } ?: return false
+        if (lost.format != target.format) return false
+        val context = appContext ?: return false
+        val collections = LibraryCollectionsStore(context)
+        val originalProgress = ProgressStore.load(oldId)
+        if (originalProgress != null && ProgressStore.load(newId) == null) {
+            val moved = originalProgress.copy(comicId = newId)
+            ProgressStore.save(moved)
+            collections.recordProgress(moved)
+        }
+        val existingBookmarkIds = BookmarkStore.forComic(newId).map(ReaderBookmark::id).toSet()
+        BookmarkStore.forComic(oldId).forEach { bookmark ->
+            BookmarkStore.add(bookmark.copy(
+                id = if (bookmark.id in existingBookmarkIds) java.util.UUID.randomUUID().toString() else bookmark.id,
+                comicId = newId,
+            ))
+        }
+        BookmarkStore.removeComic(oldId)
+        if (oldId in collections.favorites()) collections.setFavorite(newId, true)
+        collections.bookLists().filter { oldId in it.comicIds }.forEach { list ->
+            collections.setBookListMembership(list.name, newId, true)
+        }
+        val oldMeta = UserBookMetadataStore.load(oldId)
+        if (UserBookMetadataStore.load(newId) == UserBookMetadata()) UserBookMetadataStore.save(newId, oldMeta)
+        UserBookMetadataStore.remove(oldId)
+        collections.removeComic(oldId)
+        ProgressStore.remove(oldId)
+        LostBookStore.forget(oldId)
+        LibrarySnapshot.invalidate()
+        return true
     }
 
     fun addUserTag(id: String, tag: String): List<String> {
