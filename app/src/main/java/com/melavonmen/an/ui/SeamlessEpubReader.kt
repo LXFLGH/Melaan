@@ -40,6 +40,7 @@ internal fun SeamlessEpubReader(
     initialChapter: Int,
     initialUnits: Int,
     requestedChapter: Int,
+    requestedUnits: Int,
     seekToken: Int,
     preferences: DocumentReaderPreferences,
     onPositionChange: (Int, Int) -> Unit,
@@ -246,7 +247,7 @@ internal fun SeamlessEpubReader(
     LaunchedEffect(view, seekToken) {
         if (seekToken > 0) {
             view.evaluateJavascript(
-                "window.melaanSeek && window.melaanSeek(${requestedChapter.coerceIn(0, (entry.chapters.size-1).coerceAtLeast(0))},0);",
+                "window.melaanSeek && window.melaanSeek(${requestedChapter.coerceIn(0, (entry.chapters.size-1).coerceAtLeast(0))},${requestedUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)});",
                 null,
             )
         }
