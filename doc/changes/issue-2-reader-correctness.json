@@ -59,7 +59,9 @@
     "抽取 ReaderCore.restore/persist 共用漫画/电子书阅读进度与历史记录保存",
     "记录因 SAF URI 消失的书籍，并提供用户手动确认的新旧文件关联；迁移进度、书签、收藏、书单、用户标签及元数据",
     "本地备份加入阅读排版偏好与自定义元数据，并兼容旧版无新增 store 的备份",
-    "支持 EPUB/TXT 字体族（系统/衬线/无衬线/等宽）与段间距，单章与无缝模式均应用字号、背景与版式设置"
+    "支持 EPUB/TXT 字体族（系统/衬线/无衬线/等宽）与段间距，单章与无缝模式均应用字号、背景与版式设置",
+    "修复 EPUB 无缝章节 iframe 吞掉触摸滑动：子文档单指触摸/滚轮转发至外层 WebView、子滚动被禁用，图片和字体晚加载时重新测量高度；防止每次测量增加 8px 引起无限增长",
+    "文档阅读器正文单击切换浮层工具栏；EPUB WebView 手势检测不消费触摸，TXT/PDF 用 Compose 点击检测；显隐不调整正文容器尺寸"
   ],
   "pending": [
     "GitHub Actions API36 兼容性构建已通过；Android API37 正式构建、EPUB/TXT 无缝长篇和 PDF 真机验收仍待完成",
@@ -68,7 +70,8 @@
     "更精细的文本锚点位置（EPUB CFI）、PDF OCR（扫描件）、日文竖排/注音等进阶功能尚未完成",
     "已构建 APK 与 GitHub Release/latest 原安装包尚未同步",
     "确认文件重新关联的候选匹配、旧 URI 权限失效和备份合并等完整实机流程",
-    "字体族、段间距与夜间模式在 EPUB 原始 CSS 强覆盖/复杂格式下的视觉一致性待实机验收"
+    "字体族、段间距与夜间模式在 EPUB 原始 CSS 强覆盖/复杂格式下的视觉一致性待实机验收",
+    "该次 EPUB 触摸滚动及工具栏显隐修复依用户要求仅提交源码，未执行编译、自动测试或实机回归"
   ],
   "verification": {
     "current": "GitHub Actions run 42457633386: SUCCESS; API36 compatibility tests and Debug build passed at source commit e6d15b4; API37 build and real device acceptance remain unverified",
