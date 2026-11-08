@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.ProgressStore
+import com.melavonmen.an.data.ReaderCore
 import com.melavonmen.an.data.ExhibitionData
 import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.ui.theme.MelavonmenAnTheme
@@ -219,7 +220,7 @@ fun MelaanApp() {
                                             0 -> HomeScreen(
                                                 onOpenComic = { detailComicId = it },
                                                 onRead = { comicId ->
-                                                    val resume = ProgressStore.load(comicId)
+                                                    val resume = ReaderCore.restore(comicId)
                                                     readerChapterIndex = resume?.chapterIndex ?: 0
                                                     readerPageIndex = resume?.pageIndex ?: 0
                                                     readerComicId = comicId
