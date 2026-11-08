@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "id": "issue-2-reader-correctness",
-  "status": "implementation-in-review",
+  "status": "implemented",
   "source_issue": "https://github.com/LXFLGH/Melaan/issues/2",
   "baseline_revision": "2376f22f471c882d63b76af4f93f8f585411d4de",
   "target_contracts": [
@@ -24,7 +24,13 @@
     "app/src/main/java/com/melavonmen/an/ui/Shell.kt",
     "app/src/main/java/com/melavonmen/an/ui/HomeScreen.kt",
     "app/src/test/java/com/melavonmen/an/data/DocumentProgressTest.kt",
-    "app/src/test/java/com/melavonmen/an/data/EpubParserTest.kt"
+    "app/src/test/java/com/melavonmen/an/data/EpubParserTest.kt",
+    "app/build.gradle.kts",
+    "app/src/main/java/com/melavonmen/an/ui/LibraryScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DetailScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
+    ".github/workflows/android-check.yml",
+    "README.md"
   ],
   "implemented": [
     "首页继续阅读从 ProgressStore.load 恢复初始章节及页码",
@@ -34,7 +40,9 @@
     "EPUB 路径按 URI 编码规则解码，资源 URL 编码并约束 WebView 的 scheme/host/path",
     "EPUB 点击已索引的跨章节链接时同步切换 chapterIndex",
     "PDF/TXT 作者读取不再走 ArchiveReader，首页阅读卡文案按文件类型展示",
-    "新增进度百分比及 EPUB percent-encoding 回归测试"
+    "新增进度百分比及 EPUB percent-encoding 回归测试",
+    "历史、详情、阅读统计不再将 EPUB/TXT 章内滚动位置当作页码",
+    "新增 CI SDK36 编译参数覆盖，默认本地构建仍编译/目标 API37"
   ],
   "pending": [
     "完整 Android 构建与测试（当前执行环境无 Android SDK/联网编译条件）",
@@ -42,8 +50,9 @@
     "EPUB TOC/NCX/nav、TXT 大文件偏移索引、用户自定义排版、PDF 缩放/搜索等 Issue #2 剩余优化"
   ],
   "verification": {
-    "current": "not-run",
+    "current": "CI API36 compatibility run pending; Android API37 release and real-device validation not executed",
     "local_command": "./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain",
-    "device_acceptance": "手动分别从首页、详情页、历史进入 EPUB/PDF/TXT；翻页/滚动后强制结束进程再启动并验证进度和错误 UI"
+    "device_acceptance": "手动分别从首页、详情页、历史进入 EPUB/PDF/TXT；翻页/滚动后强制结束进程再启动并验证进度和错误 UI",
+    "ci_command": "./gradlew -PmelaanCompileSdk=36 :app:testDebugUnitTest :app:assembleDebug --console=plain"
   }
 }
