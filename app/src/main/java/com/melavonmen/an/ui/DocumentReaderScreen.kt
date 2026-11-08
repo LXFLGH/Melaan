@@ -81,6 +81,7 @@ import com.melavonmen.an.data.PdfDocumentSession
 import com.melavonmen.an.data.PdfPages
 import com.melavonmen.an.data.ProgressStore
 import com.melavonmen.an.data.ReadingProgress
+import com.melavonmen.an.data.ReaderCore
 import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.isPdfFormat
 import com.melavonmen.an.data.mediaKind
@@ -147,9 +148,7 @@ fun DocumentReaderScreen(
             else -> DocumentProgress.bookPercent(latestChapter, chapterCount, latestScroll)
         }
         val position = if (isPdf) latestPage else latestScroll
-        val progress = ReadingProgress(entry.id, latestChapter, position, percent)
-        runCatching { ProgressStore.save(progress) }
-        runCatching { collections.recordProgress(progress) }
+        runCatching { ReaderCore.persist(entry.id, latestChapter, position, percent, collections) }
     }
     val exit = {
         saveProgress()
