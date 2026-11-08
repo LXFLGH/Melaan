@@ -66,6 +66,8 @@ import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ReadingProgress
+import com.melavonmen.an.data.isPdfFormat
+import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.ReaderSettingsStore
 import com.melavonmen.an.data.LocalBackup
 import com.melavonmen.an.R
@@ -131,6 +133,12 @@ private fun computeReadPages(
     for (e in entries) {
         val p = progressById[e.id] ?: continue
         if (e.chapters.isEmpty()) continue
+        // EPUB/TXT pageIndex is a scroll fraction, not a page number.
+        if (isDocumentFormat(e.format) && !isPdfFormat(e.format)) continue
+        if (isPdfFormat(e.format)) {
+            total += (p.pageIndex + 1).coerceIn(0, e.chapters.first().pageEntryPaths.size)
+            continue
+        }
         val ci = p.chapterIndex.coerceIn(0, e.chapters.size - 1)
         var n = p.pageIndex.coerceAtLeast(0) + 1
         for (c in 0 until ci) n += e.chapters[c].pageEntryPaths.size
