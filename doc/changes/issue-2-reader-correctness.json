@@ -62,7 +62,7 @@
     "支持 EPUB/TXT 字体族（系统/衬线/无衬线/等宽）与段间距，单章与无缝模式均应用字号、背景与版式设置"
   ],
   "pending": [
-    "当前提交的 CI 单测与 Debug 构建结果待验收，API37 原生构建及实机 EPUB/PDF/TXT 验收待完成",
+    "GitHub Actions API36 兼容性构建已通过；Android API37 正式构建、EPUB/TXT 无缝长篇和 PDF 真机验收仍待完成",
     "EPUB iframe 沙箱脚本、图文混排、站内外链接、极长章节、图片/字体加载和滑动窗口生命周期尚待实机压力测试",
     "TXT 超大文件、复杂 GB18030/UTF16、进度位置恢复及前后章节回收尚待实机压力测试",
     "更精细的文本锚点位置（EPUB CFI）、PDF OCR（扫描件）、日文竖排/注音等进阶功能尚未完成",
@@ -71,9 +71,11 @@
     "字体族、段间距与夜间模式在 EPUB 原始 CSS 强覆盖/复杂格式下的视觉一致性待实机验收"
   ],
   "verification": {
-    "current": "implementation-in-review; CI SDK36 tested previously but newest sources pending; API37 and Android device not validated",
+    "current": "GitHub Actions run 42457633386: SUCCESS; API36 compatibility tests and Debug build passed at source commit e6d15b4; API37 build and real device acceptance remain unverified",
     "local_command": "./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain",
     "device_acceptance": "手动分别从首页、详情页、历史进入 EPUB/PDF/TXT；翻页/滚动后强制结束进程再启动并验证进度和错误 UI",
-    "ci_command": "./gradlew -PmelaanCompileSdk=36 :app:testDebugUnitTest :app:assembleDebug --console=plain"
+    "ci_command": "./gradlew -PmelaanCompileSdk=36 :app:testDebugUnitTest :app:assembleDebug --console=plain",
+    "ci_run": "https://github.com/LXFLGH/Melaan/actions/runs/42457633386",
+    "ci_artifact": "Melaan-debug-api36-compatibility (artifact ID 13608431423)"
   }
 }
