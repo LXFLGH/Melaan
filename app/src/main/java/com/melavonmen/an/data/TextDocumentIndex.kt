@@ -6,7 +6,6 @@ import java.io.InputStream
 import java.io.InputStreamReader
 import java.io.Reader
 import java.nio.ByteBuffer
-import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
 
@@ -51,15 +50,17 @@ internal object TextDocumentIndex {
             }
             else -> {
                 bomLength = 0
-                try {
-                    StandardCharsets.UTF_8.newDecoder()
-                        .onMalformedInput(CodingErrorAction.REPORT)
-                        .onUnmappableCharacter(CodingErrorAction.REPORT)
-                        .decode(ByteBuffer.wrap(probe, 0, amount))
-                    StandardCharsets.UTF_8
-                } catch (_: CharacterCodingException) {
-                    charset("GB18030")
+                // The fixed-size probe may end in the middle of a valid UTF-8 code point.
+                val isUtf8 = (0..3).any { trim ->
+                    val length = amount - trim
+                    length >= 0 && runCatching {
+                        StandardCharsets.UTF_8.newDecoder()
+                            .onMalformedInput(CodingErrorAction.REPORT)
+                            .onUnmappableCharacter(CodingErrorAction.REPORT)
+                            .decode(ByteBuffer.wrap(probe, 0, length))
+                    }.isSuccess
                 }
+                if (isUtf8) StandardCharsets.UTF_8 else charset("GB18030")
             }
         }
         repeat(bomLength) { input.read() }
