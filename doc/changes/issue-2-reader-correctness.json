@@ -42,15 +42,27 @@
     "PDF/TXT 作者读取不再走 ArchiveReader，首页阅读卡文案按文件类型展示",
     "新增进度百分比及 EPUB percent-encoding 回归测试",
     "历史、详情、阅读统计不再将 EPUB/TXT 章内滚动位置当作页码",
-    "新增 CI SDK36 编译参数覆盖，默认本地构建仍编译/目标 API37"
+    "新增 CI SDK36 编译参数覆盖，默认本地构建仍编译/目标 API37",
+    "TXT 新增流式章节字符偏移索引（按需读取，每段最多 120000 字），扫描器复用持久化章节路径",
+    "TXT 无缝滚动采用 LazyColumn 虚拟章节行与前后章节窗口预加载；EPUB 无缝滚动采用受限 WebView 中的滑动 iframe 窗口",
+    "文档阅读设置包含字体、行距、边距、夜间背景、无缝模式及 PDF 双页/适宽",
+    "EPUB 2 NCX、EPUB 3 nav 目录标题解析，新增对应单元测试",
+    "PDF 双指缩放/平移、横屏双页、页面缩略图导航及 Android 15+ 可搜索 PDF 的文本检索",
+    "EPUB/TXT 逐章全文搜索、命名书签增删与阅读位置跳转",
+    "书籍标题/作者/系列覆盖层；按最近阅读、作者、系列、格式排序",
+    "SAF 文件大小和修改时间均一致时复用旧索引，扫描修改的文件重新解析",
+    "GitHub Actions API36 兼容性构建并上传 Debug APK artifact，API37 正式构建仍需本机执行"
   ],
   "pending": [
-    "完整 Android 构建与测试（当前执行环境无 Android SDK/联网编译条件）",
-    "实机验证 EPUB/CSS/图片/内部链接、PDF 翻页和重试、TXT 章内滚动恢复",
-    "EPUB TOC/NCX/nav、TXT 大文件偏移索引、用户自定义排版、PDF 缩放/搜索等 Issue #2 剩余优化"
+    "当前提交的 CI 单测与 Debug 构建结果待验收，API37 原生构建及实机 EPUB/PDF/TXT 验收待完成",
+    "EPUB iframe 沙箱脚本、图文混排、站内外链接、极长章节、图片/字体加载和滑动窗口生命周期尚待实机压力测试",
+    "TXT 超大文件、复杂 GB18030/UTF16、进度位置恢复及前后章节回收尚待实机压力测试",
+    "文件迁移后的进度与书签自动/手动重新关联尚未完成",
+    "更精细的文本锚点位置（EPUB CFI）、PDF OCR（扫描件）、日文竖排/注音等进阶功能尚未完成",
+    "已构建 APK 与 GitHub Release/latest 原安装包尚未同步"
   ],
   "verification": {
-    "current": "CI API36 compatibility run pending; Android API37 release and real-device validation not executed",
+    "current": "implementation-in-review; CI SDK36 tested previously but newest sources pending; API37 and Android device not validated",
     "local_command": "./gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain",
     "device_acceptance": "手动分别从首页、详情页、历史进入 EPUB/PDF/TXT；翻页/滚动后强制结束进程再启动并验证进度和错误 UI",
     "ci_command": "./gradlew -PmelaanCompileSdk=36 :app:testDebugUnitTest :app:assembleDebug --console=plain"
