@@ -5,9 +5,11 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+val compileSdkOverride = providers.gradleProperty("melaanCompileSdk").orNull?.toIntOrNull()
+
 android {
     namespace = "com.styropyr0.prismal"
-    compileSdk = 37
+    compileSdk = compileSdkOverride ?: 37
 
     defaultConfig { minSdk = 25 }
 
