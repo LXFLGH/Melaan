@@ -64,6 +64,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.melavonmen.an.data.ChapterRef
 import com.melavonmen.an.data.DocumentProgress
+import com.melavonmen.an.data.DocumentReaderPreferences
+import com.melavonmen.an.data.DocumentReaderPreferencesStore
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibraryCollectionsStore
@@ -97,6 +99,9 @@ fun DocumentReaderScreen(
     require(isDocumentFormat(entry.format)) { "unsupported document format: ${entry.format}" }
     val context = LocalContext.current
     val collections = remember(context) { LibraryCollectionsStore(context) }
+    var preferences by remember(entry.id) { mutableStateOf(DocumentReaderPreferencesStore.load(context)) }
+    var showOptions by remember(entry.id) { mutableStateOf(false) }
+    var seekToken by remember(entry.id) { mutableIntStateOf(0) }
     val chapterCount = entry.chapters.size.coerceAtLeast(1)
     var chapter by remember(entry.id) {
         mutableIntStateOf(chapterIndex.coerceIn(0, chapterCount - 1))
@@ -113,6 +118,13 @@ fun DocumentReaderScreen(
     val latestChapter by rememberUpdatedState(chapter)
     val latestPage by rememberUpdatedState(page)
     val latestScroll by rememberUpdatedState(scrollUnits)
+    fun seekChapter(target: Int) {
+        chapter = target.coerceIn(0, chapterCount - 1)
+        page = 0
+        scrollUnits = 0
+        restoreScrollUnits = 0
+        seekToken++
+    }
 
     val saveProgress = {
         val total = when (mediaKind(entry.format)) {
@@ -149,6 +161,7 @@ fun DocumentReaderScreen(
             title = entry.title,
             subtitle = if (isPdf) "PDF · 第 ${page + 1} 页" else chapterSubtitle(entry, chapter),
             onBack = exit,
+            onOptions = { showOptions = true },
         )
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (mediaKind(entry.format)) {
@@ -157,22 +170,45 @@ fun DocumentReaderScreen(
                     page = page,
                     onPageChange = { page = it },
                 )
-                MediaKind.EPUB -> EpubContent(
+                MediaKind.EPUB -> if (preferences.seamless) {
+                    SeamlessEpubReader(
+                        entry = entry,
+                        initialChapter = chapterIndex,
+                        initialUnits = pageIndex,
+                        requestedChapter = chapter,
+                        seekToken = seekToken,
+                        preferences = preferences,
+                        onPositionChange = { current, units ->
+                            chapter = current
+                            scrollUnits = units
+                        },
+                        onLinkChapter = ::seekChapter,
+                    )
+                } else EpubContent(
                     entry = entry,
                     chapter = chapter,
                     restoreScrollUnits = restoreScrollUnits,
-                    onChapterChange = { target ->
-                        chapter = target
-                        page = 0
-                        scrollUnits = 0
-                        restoreScrollUnits = 0
-                    },
+                    onChapterChange = ::seekChapter,
                     onProgressChange = { scrollUnits = it },
                 )
-                MediaKind.TXT -> TextContent(
+                MediaKind.TXT -> if (preferences.seamless) {
+                    SeamlessTextReader(
+                        entry = entry,
+                        initialChapter = chapterIndex,
+                        initialUnits = pageIndex,
+                        requestedChapter = chapter,
+                        seekToken = seekToken,
+                        preferences = preferences,
+                        onPositionChange = { current, units ->
+                            chapter = current
+                            scrollUnits = units
+                        },
+                    )
+                } else TextContent(
                     entry = entry,
                     chapter = chapter,
                     restoreScrollUnits = restoreScrollUnits,
+                    preferences = preferences,
                     onProgressChange = { scrollUnits = it },
                 )
                 else -> DocumentError("这不是电子书文件")
@@ -184,20 +220,24 @@ fun DocumentReaderScreen(
             chapterCount = chapterCount,
             pdfPageCount = entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1,
             page = page,
-            onChapterChange = { value ->
-                chapter = value
-                page = 0
-                scrollUnits = 0
-                restoreScrollUnits = 0
-            },
+            onChapterChange = ::seekChapter,
             onPageChange = { page = it },
             onExit = exit,
         )
     }
+    if (showOptions) DocumentReaderOptions(
+        current = preferences,
+        isPdf = isPdf,
+        onChange = { value ->
+            preferences = value
+            DocumentReaderPreferencesStore.save(context, value)
+        },
+        onDismiss = { showOptions = false },
+    )
 }
 
 @Composable
-private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit) {
+private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit, onOptions: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -231,6 +271,7 @@ private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        TextButton(onClick = onOptions) { Text("Aa / ⚙") }
     }
 }
 
@@ -486,6 +527,7 @@ private fun TextContent(
     entry: ComicEntry,
     chapter: Int,
     restoreScrollUnits: Int,
+    preferences: DocumentReaderPreferences,
     onProgressChange: (Int) -> Unit,
 ) {
     var retry by remember(entry.id, chapter) { mutableIntStateOf(0) }
@@ -544,15 +586,15 @@ private fun TextContent(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = preferences.horizontalMarginDp.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         itemsIndexed(paragraphs) { _, paragraph ->
             Text(
                 paragraph,
-                fontSize = 18.sp,
-                lineHeight = 30.sp,
-                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = preferences.fontSizeSp.sp,
+                lineHeight = preferences.lineHeightSp.sp,
+                color = if (preferences.nightMode) androidx.compose.ui.graphics.Color(0xFFE9E1D5) else MaterialTheme.colorScheme.onBackground,
             )
         }
     }
