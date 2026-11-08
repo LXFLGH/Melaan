@@ -257,13 +257,22 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
             }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
-            Text("检查疑似重复作品", color = Accent, modifier = Modifier.clickable {
-                duplicateCandidates = LibraryMaintenance.duplicateGroups(comics)
-                duplicateDialog = true
-            }.padding(bottom = 4.dp))
-            Text("重新关联移动或丢失的书籍", color = Accent, modifier = Modifier.clickable {
-                showLostFiles = true
-            }.padding(vertical = 4.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "检查疑似重复作品",
+                    color = Accent,
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        duplicateCandidates = LibraryMaintenance.duplicateGroups(comics)
+                        duplicateDialog = true
+                    }.padding(vertical = 8.dp),
+                )
+                Text(
+                    "重新关联移动或丢失的书籍",
+                    color = Accent,
+                    modifier = Modifier.fillMaxWidth().clickable { showLostFiles = true }
+                        .padding(vertical = 8.dp),
+                )
+            }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
