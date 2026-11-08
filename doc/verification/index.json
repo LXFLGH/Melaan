@@ -129,37 +129,59 @@
       "id": "V12",
       "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug",
       "pass": "BUILD SUCCESSFUL; unit tests pass",
-      "covers": ["R38", "R39", "R40", "R41", "R42", "R43"]
+      "covers": [
+        "R38",
+        "R39",
+        "R40",
+        "R41",
+        "R42",
+        "R43"
+      ]
     },
     {
       "id": "V13",
       "cmd": "cd .; $env:JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'; ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug --console=plain; adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk",
       "pass": "BUILD SUCCESSFUL; nested ZIP tests pass; install Success",
-      "covers": ["R44"]
+      "covers": [
+        "R44"
+      ]
     },
     {
       "id": "V14",
       "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' ./gradlew -p . :app:testDebugUnitTest :app:assembleDebug --console=plain",
       "pass": "BUILD SUCCESSFUL; 62 tests, 0 failures, 0 errors；快照失效与共享封面缓存静态调用链检查通过；实机导航因 INJECT_EVENTS 限制单独手动验收",
-      "covers": ["R1", "R12", "R45"]
+      "covers": [
+        "R1",
+        "R12",
+        "R45"
+      ]
     },
     {
       "id": "V15",
       "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' ./gradlew -p . :app:testDebugUnitTest :app:assembleDebug --console=plain; adb -s connected-device install -r app/build/outputs/apk/debug/app-debug.apk; adb -s connected-device shell dumpsys package com.melavonmen.an | grep -E 'versionCode|versionName'",
       "pass": "BUILD SUCCESSFUL; 62 tests, 0 failures, 0 errors; adb install Success; package reports versionName=1.0.12 versionCode=13; APK sha256 24b83043e442cb7c55850127c019db55b4beae60ece649ad46dc38d397777e7c",
-      "covers": ["R46"]
+      "covers": [
+        "R46"
+      ]
     },
     {
       "id": "V16",
       "cmd": ".\\gradlew.bat :app:assembleDebug --console=plain; adb -s <connected-device> install -r app/build/outputs/apk/debug/app-debug.apk; adb -s <connected-device> shell dumpsys package com.melavonmen.an",
       "pass": "BUILD SUCCESSFUL; adb install Success; device package reports versionName=1.0.12 versionCode=13",
-      "covers": ["R47"]
+      "covers": [
+        "R47"
+      ]
     },
     {
       "id": "V17",
       "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' D:/Mycode/Melaan/gradlew -p D:/Mycode/Melaan :app:testDebugUnitTest :app:assembleDebug --console=plain",
       "pass": "BUILD SUCCESSFUL; 69 tests, 0 failures, 0 errors; adb install Success; device package reports versionName=1.1.0 versionCode=14; APK sha256 bc166cb6ac7391ad26a457305e441b128bbb845fa9076e7dce4774c6b40d4c93; 实机打开三类文件并验证进度单独手动验收",
-      "covers": ["R49", "R50", "R51", "R52"]
+      "covers": [
+        "R49",
+        "R50",
+        "R51",
+        "R52"
+      ]
     }
   ],
   "manual_review": [
@@ -176,6 +198,8 @@
     "Connected Android instrumentation test 先前受 INSTALL_GRANT_RUNTIME_PERMISSIONS / INSTALL_FAILED_USER_RESTRICTED 限制，未执行测试方法。",
     "依次手动点击首页/书架/标签/我的并往返切换，确认无卡顿、内容/筛选/进度正确；ADB input 被 INJECT_EVENTS 拒绝，无法自动注入导航点击。",
     "在实机上分别打开至少一本本地 EPUB、PDF、TXT，确认书库筛选、封面、翻章/翻页和进度恢复。",
-    "在实机 EPUB 中确认图片/CSS 资源加载、外部链接被拦截、WebView 关闭后无资源泄漏。"
+    "在实机 EPUB 中确认图片/CSS 资源加载、外部链接被拦截、WebView 关闭后无资源泄漏。",
+    "Issue #2: 在真实 Android 设备上分别通过首页继续阅读、详情页继续阅读、历史恢复，核验 PDF 页与 EPUB/TXT 章节及章内位置，强制结束进程再启动复测。",
+    "Issue #2: 检查读完多章节书籍首章后全书进度未变成 100%；对损坏文档检查错误提示与重试；EPUB 检查站外 URL 拦截、编码路径、目录及图片/CSS。"
   ]
 }
