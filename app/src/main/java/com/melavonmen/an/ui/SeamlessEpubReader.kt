@@ -49,6 +49,7 @@ internal fun SeamlessEpubReader(
     val context = LocalContext.current
     val positionCallback = rememberUpdatedState(onPositionChange)
     val chapterCallback = rememberUpdatedState(onLinkChapter)
+    val activeChapter = rememberUpdatedState(requestedChapter)
     val urls = remember(entry.id) {
         entry.chapters.map { chapter ->
             val path = chapter.pageEntryPaths.firstOrNull().orEmpty()
@@ -77,6 +78,8 @@ internal fun SeamlessEpubReader(
                     val path = uri.path?.trimStart('/')
                     val target = entry.chapters.indexOfFirst { it.pageEntryPaths.firstOrNull() == path }
                     if (target >= 0) {
+                        // Keep same-XHTML footnotes and anchors within their sandboxed frame.
+                        if (target == activeChapter.value && uri.fragment != null) return false
                         chapterCallback.value(target)
                         return true
                     }
