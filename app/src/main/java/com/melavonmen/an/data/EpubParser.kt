@@ -141,9 +141,11 @@ internal object EpubParser {
     }
 
     private fun resolveHref(baseDirectory: String, href: String): String {
-        val clean = href.substringBefore('#')
+        val clean = href.substringBefore('#').substringBefore('?')
         val stack = ArrayDeque(baseDirectory.split('/').filter { it.isNotEmpty() && it != "." })
-        for (part in clean.split('/')) {
+        for (encodedPart in clean.split('/')) {
+            // OPF hrefs are URIs; ZIP entry names are decoded paths.
+            val part = URL_DECODER.decode(encodedPart)
             when (part) {
                 "", "." -> Unit
                 ".." -> if (stack.isNotEmpty()) stack.removeLast()
