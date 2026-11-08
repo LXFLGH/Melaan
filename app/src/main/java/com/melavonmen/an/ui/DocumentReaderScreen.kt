@@ -13,6 +13,7 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -110,6 +111,7 @@ fun DocumentReaderScreen(
     val collections = remember(context) { LibraryCollectionsStore(context) }
     var preferences by remember(entry.id) { mutableStateOf(DocumentReaderPreferencesStore.load(context)) }
     var showOptions by remember(entry.id) { mutableStateOf(false) }
+    var controlsVisible by remember(entry.id) { mutableStateOf(true) }
     var showSearch by remember(entry.id) { mutableStateOf(false) }
     var showBookmarks by remember(entry.id) { mutableStateOf(false) }
     var seekToken by remember(entry.id) { mutableIntStateOf(0) }
@@ -167,17 +169,17 @@ fun DocumentReaderScreen(
             .collect { saveProgress() }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        ReaderTopBar(
-            title = entry.title,
-            subtitle = if (isPdf) "PDF · 第 ${page + 1} 页" else chapterSubtitle(entry, chapter),
-            onBack = exit,
-            onOptions = { showOptions = true },
-            onSearch = { showSearch = true },
-            onBookmarks = { showBookmarks = true },
-            document = !isPdf,
-        )
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+    val formatKind = mediaKind(entry.format)
+    val onReaderTap: () -> Unit = { controlsVisible = !controlsVisible }
+    // WebView reports touch via its native touch listener; Compose handles TXT/PDF taps.
+    val readingSurface = if (formatKind == MediaKind.EPUB) Modifier.fillMaxSize()
+    else Modifier.fillMaxSize().pointerInput(entry.id) {
+        detectTapGestures(onTap = { onReaderTap() })
+    }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(readingSurface) {
+        Box(Modifier.fillMaxSize()) {
             when (mediaKind(entry.format)) {
                 MediaKind.PDF -> PdfContent(
                     entry = entry,
@@ -199,6 +201,7 @@ fun DocumentReaderScreen(
                             scrollUnits = units
                         },
                         onLinkChapter = { seekChapter(it) },
+                        onReaderTap = onReaderTap,
                     )
                 } else EpubContent(
                     entry = entry,
@@ -207,6 +210,7 @@ fun DocumentReaderScreen(
                     preferences = preferences,
                     onChapterChange = { seekChapter(it) },
                     onProgressChange = { scrollUnits = it },
+                    onReaderTap = onReaderTap,
                 )
                 MediaKind.TXT -> if (preferences.seamless) {
                     SeamlessTextReader(
@@ -232,6 +236,26 @@ fun DocumentReaderScreen(
                 else -> DocumentError("这不是电子书文件")
             }
         }
+        }
+        if (controlsVisible) {
+            Box(
+                Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+            ) {
+        ReaderTopBar(
+            title = entry.title,
+            subtitle = if (isPdf) "PDF · 第 ${page + 1} 页" else chapterSubtitle(entry, chapter),
+            onBack = exit,
+            onOptions = { showOptions = true },
+            onSearch = { showSearch = true },
+            onBookmarks = { showBookmarks = true },
+            document = !isPdf,
+        )
+            }
+            Box(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+            ) {
         ReaderBottomBar(
             format = entry.format,
             chapter = chapter,
@@ -243,6 +267,8 @@ fun DocumentReaderScreen(
             onPageChange = { page = it },
             onExit = exit,
         )
+            }
+        }
     }
     if (showOptions) DocumentReaderOptions(
         current = preferences,
