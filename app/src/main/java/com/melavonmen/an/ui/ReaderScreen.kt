@@ -87,6 +87,7 @@ import com.melavonmen.an.data.ProgressStore
 import com.melavonmen.an.data.BookmarkStore
 import com.melavonmen.an.data.ReaderBookmark
 import com.melavonmen.an.data.ReaderSettingsStore
+import com.melavonmen.an.data.ReaderCore
 import com.melavonmen.an.data.ReaderOverrides
 import com.melavonmen.an.data.LibraryCollectionsStore
 import com.melavonmen.an.data.ReadingProgress
@@ -292,9 +293,7 @@ fun ReaderScreen(comicId: String, chapterIndex: Int, pageIndex: Int, onExit: () 
         if (entry == null || totalPages <= 0) return@LaunchedEffect
         delay(600)
         withContext(Dispatchers.IO) {
-            val progress = ReadingProgress(comicId, chapter, page, ((page + 1) * 100) / totalPages)
-            ProgressStore.save(progress)
-            collections.recordProgress(progress)
+            ReaderCore.persist(comicId, chapter, page, ((page + 1) * 100) / totalPages, collections)
         }
     }
 
@@ -315,9 +314,7 @@ fun ReaderScreen(comicId: String, chapterIndex: Int, pageIndex: Int, onExit: () 
     // SharedPreferences.apply() 更新内存值后异步落盘，退出时直接保存即可。
     val exit: () -> Unit = {
         if (entry != null && totalPages > 0) {
-            val progress = ReadingProgress(comicId, chapter, page, ((page + 1) * 100) / totalPages)
-            ProgressStore.save(progress)
-            collections.recordProgress(progress)
+            ReaderCore.persist(comicId, chapter, page, ((page + 1) * 100) / totalPages, collections)
         }
         LibraryRepository.releaseNestedChapter(comicId)
         onExit()
