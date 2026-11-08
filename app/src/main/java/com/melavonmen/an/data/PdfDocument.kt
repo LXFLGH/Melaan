@@ -41,17 +41,19 @@ internal object PdfPages {
 
     fun renderPage(session: PdfDocumentSession, index: Int, targetWidth: Int = 1080): Bitmap? {
         if (index < 0 || index >= session.pageCount) return null
-        val page = session.renderer.openPage(index)
-        try {
-            val scale = if (page.width > 0) targetWidth.toFloat() / page.width else 1f
-            val width = (page.width * scale).roundToInt().coerceAtLeast(1)
-            val height = (page.height * scale).roundToInt().coerceAtLeast(1)
-            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            bitmap.eraseColor(Color.WHITE)
-            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-            return bitmap
-        } finally {
-            page.close()
+        return synchronized(session) {
+            val page = session.renderer.openPage(index)
+            try {
+                val scale = if (page.width > 0) targetWidth.toFloat() / page.width else 1f
+                val width = (page.width * scale).roundToInt().coerceAtLeast(1)
+                val height = (page.height * scale).roundToInt().coerceAtLeast(1)
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                bitmap.eraseColor(Color.WHITE)
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                bitmap
+            } finally {
+                page.close()
+            }
         }
     }
 
