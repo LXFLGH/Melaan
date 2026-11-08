@@ -118,7 +118,7 @@ internal fun SeamlessEpubReader(
             }
         }
     }
-    val html = remember(entry.id, preferences.fontSizeSp, preferences.lineHeightSp, preferences.horizontalMarginDp, preferences.nightMode) {
+    val html = remember(entry.id, preferences.fontSizeSp, preferences.lineHeightSp, preferences.paragraphSpacingDp, preferences.fontFamily, preferences.horizontalMarginDp, preferences.nightMode) {
         // Escape HTML delimiters so an EPUB filename cannot terminate this trusted script.
         val bookUrls = JSONArray(urls).toString()
             .replace("<", "\\u003c")
@@ -155,6 +155,8 @@ internal fun SeamlessEpubReader(
                   body.style.fontSize='${preferences.fontSizeSp}px';
                   body.style.lineHeight='${preferences.lineHeightSp / preferences.fontSizeSp.toFloat()}';
                   body.style.padding='0 ${preferences.horizontalMarginDp}px';
+                  body.style.fontFamily='${when(preferences.fontFamily) { "serif" -> "serif"; "sans" -> "sans-serif"; "mono" -> "monospace"; else -> "inherit" }}';
+                  for(const p of doc.querySelectorAll('p'))p.style.marginBottom='${preferences.paragraphSpacingDp}px';
                   body.style.color='$fore';
                   body.style.backgroundColor='$back';
                 }
