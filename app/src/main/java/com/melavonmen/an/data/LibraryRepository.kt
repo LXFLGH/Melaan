@@ -135,18 +135,24 @@ object LibraryRepository {
         val stamps = ctx.getSharedPreferences("melaan_scan_stamps", Context.MODE_PRIVATE)
         val updatedStamps = LinkedHashMap<String, String>()
         val uniqueUris = LinkedHashMap<String, Uri>()
+        val discoveredIds = HashSet<String>()
         val warnings = ArrayList<ScanWarning>()
         val failedTrees = ArrayList<Uri>()
         for (treeUri in treeUris.distinctBy(Uri::toString)) {
             try {
-                for (uri in LibraryScanner.findArchiveUris(ctx.contentResolver, treeUri) { _, name ->
+                for (uri in LibraryScanner.findArchiveUris(ctx.contentResolver, treeUri) { foundUri, name ->
                     currentJob?.ensureActive()
-                    discoveredCount++
-                    if (discoveredCount <= 12 || discoveredCount % 12 == 0) {
-                        mutableScanProgress.value = mutableScanProgress.value.copy(
-                            discoveredCount = discoveredCount,
-                            currentFile = name,
-                        )
+                    val identity = runCatching {
+                        "${foundUri.authority}:${DocumentsContract.getDocumentId(foundUri)}"
+                    }.getOrDefault(foundUri.toString())
+                    if (discoveredIds.add(identity)) {
+                        discoveredCount++
+                        if (discoveredCount <= 12 || discoveredCount % 12 == 0) {
+                            mutableScanProgress.value = mutableScanProgress.value.copy(
+                                discoveredCount = discoveredCount,
+                                currentFile = name,
+                            )
+                        }
                     }
                 }) {
                     currentJob?.ensureActive()
