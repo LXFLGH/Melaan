@@ -235,10 +235,11 @@ object LibraryRepository {
     suspend fun readAuthors(id: String): List<String> {
         if (ExhibitionData.enabled) return ExhibitionData.comic(id)?.authors.orEmpty()
         val entry = byId(id) ?: return emptyList()
-        return if (isEpubFormat(entry.format)) {
-            withReader(id) { EpubParser.parse(it)?.authors.orEmpty() }
-        } else {
-            withReader(id) { it.parseMetadata()?.authors.orEmpty() }
+        return when {
+            entry.authors.isNotEmpty() -> entry.authors
+            isEpubFormat(entry.format) -> withReader(id) { EpubParser.parse(it)?.authors.orEmpty() }
+            isPdfFormat(entry.format) || isTxtFormat(entry.format) -> emptyList()
+            else -> withReader(id) { it.parseMetadata()?.authors.orEmpty() }
         }
     }
 
