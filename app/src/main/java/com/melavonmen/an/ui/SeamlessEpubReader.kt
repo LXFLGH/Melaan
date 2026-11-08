@@ -158,8 +158,9 @@ internal fun SeamlessEpubReader(
           let restoreUnits=${initialUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)};
           const root=document.getElementById('chapters');
           const frames=new Map();
-          let first=Math.max(0,target-1),last=Math.min(urls.length-1,target+1);
+          let first=Math.max(0,target-1),last=Math.min(urls.length-1,target+2);
           let active=target,restored=false,scheduled=false;
+          let lastReportedChapter=-1,lastReportedUnits=-1,lastReportAt=0;
           // A single RAF per frame remeasurement: never re-apply all paragraph styles
           // from a ResizeObserver callback (that previously caused layout thrashing).
           let kineticFrame=0;
@@ -350,10 +351,14 @@ internal fun SeamlessEpubReader(
               const rect=frame.getBoundingClientRect();
               const denominator=Math.max(1,rect.height-innerHeight);
               const units=Math.max(0,Math.min(10000,Math.round(-rect.top/denominator*10000)));
-              try{MelaanProgress.onPosition(active,units);}catch(e){}
+              const now=performance.now();
+              if(active!==lastReportedChapter || Math.abs(units-lastReportedUnits)>=35 || now-lastReportAt>=600){
+                lastReportedChapter=active;lastReportedUnits=units;lastReportAt=now;
+                try{MelaanProgress.onPosition(active,units);}catch(e){}
+              }
             }
             const tail=frames.get(last);
-            if(last<urls.length-1&&tail&&tail.getBoundingClientRect().bottom<innerHeight*2.2) {
+            if(last<urls.length-1&&tail&&tail.getBoundingClientRect().bottom<innerHeight*4) {
               last++;create(last,false);
             }
             const head=frames.get(first);
@@ -378,8 +383,9 @@ internal fun SeamlessEpubReader(
             // reset bounded window to requested chapter; preserve navigation semantics
             for(const old of frames.values())if(old._melaanObserver)old._melaanObserver.disconnect();
             root.replaceChildren();frames.clear();
-            first=Math.max(0,index-1);last=Math.min(urls.length-1,index+1);
+            first=Math.max(0,index-1);last=Math.min(urls.length-1,index+2);
             active=index;target=index;restoreUnits=units;restored=false;
+            lastReportedChapter=-1;lastReportedUnits=-1;
             for(let i=first;i<=last;i++)create(i,false);
             // create() restores target after its frame loads, including new seek units.
           };
