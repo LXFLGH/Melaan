@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "id": "reading-progress",
-  "status": "implementation-in-review",
+  "status": "implemented",
   "title": "阅读进度/书签合同",
   "input_schema": "comicId + chapterIndex + pageIndex + percent；PDF 的 pageIndex 是页序号，EPUB/TXT 的 pageIndex 是章内滚动 0..10000，percent 一律为全书进度（兼容原四字段 JSON）",
   "output_schema": "ReadingProgress 持久化（SharedPreferences，key=progress.<comicId>，JSON）",
@@ -56,6 +56,6 @@
     "100 章书籍第一章读完时，书架全书进度不能变成 100%"
   ],
   "version": "1.1-pending-verification",
-  "sync_notes": "implemented+verified: ProgressStore SharedPreferences JSON；ProgressStoreTest 7/7；Issue #2 新增 DocumentProgress 与恢复路径，待 Android 构建与实机回归验收",
+  "sync_notes": "implemented+verified: ProgressStore SharedPreferences JSON；ProgressStoreTest 7/7；Issue #2 新增 DocumentProgress 与恢复路径，待 Android 构建与实机回归验收；GitHub CI 使用 API36 兼容性编译（默认本地仍 API37），实机验收仍待完成",
   "actual_deviations": "API实况: ReadingProgress(comicId,chapterIndex,pageIndex,percent) 于 ProgressStore.kt"
 }
