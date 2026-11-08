@@ -59,6 +59,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.ExhibitionData
+import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.ui.theme.MelavonmenAnTheme
 
 private const val KEY_THEME_MODE = "theme_mode"
@@ -103,6 +104,8 @@ fun MelaanApp() {
 
     val inReader = readerComicId != null
     val inDetail = detailComicId != null
+    val readerEntry = remember(readerComicId) { readerComicId?.let(LibraryRepository::byId) }
+    val documentReader = readerEntry != null && isDocumentFormat(readerEntry.format)
 
     fun selectTab(index: Int) {
         selectedTabIndex = index
@@ -173,6 +176,11 @@ fun MelaanApp() {
                         ) {
                             Box(Modifier.fillMaxHeight().widthIn(max = contentWidth).fillMaxWidth()) {
                                 when {
+                                    inReader && documentReader && readerEntry != null -> DocumentReaderScreen(
+                                        entry = readerEntry,
+                                        chapterIndex = readerChapterIndex,
+                                        onExit = { readerComicId = null }
+                                    )
                                     inReader -> ReaderScreen(
                                         comicId = readerComicId!!,
                                         chapterIndex = readerChapterIndex,

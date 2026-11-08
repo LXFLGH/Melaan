@@ -79,6 +79,10 @@
       {
         "id": "contract-exhibition-mode",
         "path": "contracts/exhibition-mode.json"
+      },
+      {
+        "id": "contract-local-documents",
+        "path": "contracts/local-documents.json"
       }
     ],
     "decisions": [
@@ -109,6 +113,10 @@
       {
         "id": "decision-navigation-switch-performance",
         "path": "decisions/navigation-switch-performance.json"
+      },
+      {
+        "id": "decision-local-documents",
+        "path": "decisions/local-documents.json"
       }
     ],
     "changes": [
@@ -163,6 +171,10 @@
       {
         "id": "changes-exhibition-mode",
         "path": "changes/exhibition-mode.json"
+      },
+      {
+        "id": "changes-local-documents",
+        "path": "changes/local-documents.json"
       }
     ],
     "verification": "verification/index.json"
@@ -324,6 +336,23 @@
         "contracts/exhibition-mode.json",
         "modules/ui-shell.json",
         "changes/exhibition-mode.json",
+        "verification/index.json"
+      ]
+    },
+    {
+      "task": "T15-local-documents",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/local-documents.json",
+        "contracts/archive-stream.json",
+        "contracts/reading-progress.json",
+        "contracts/library-scan-report.json",
+        "decisions/local-documents.json",
+        "modules/data-archive.json",
+        "modules/ui-reader.json",
+        "modules/ui-shell.json",
+        "changes/local-documents.json",
         "verification/index.json"
       ]
     }

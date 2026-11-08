@@ -172,7 +172,7 @@ class ArchiveReader private constructor(
         }
         if (nested.pagePaths.isEmpty()) {
             nested.close()
-            throw ArchiveFormatException("内层章节 ZIP 不含可读漫画页面")
+            throw ArchiveFormatException("内层章节 ZIP 不含可读书页")
         }
         activeNestedChapter = nested
         nested.pagePaths

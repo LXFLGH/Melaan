@@ -1,21 +1,23 @@
 {
   "schema_version": "1.0",
   "id": "melaan",
-  "name": "Melaan 漫画浏览 App",
-  "goal": "Android 12+ 原生漫画浏览 App：本地 7z 漫画库流式阅读 + 标签清洗（疑似重复键手动确认合并）",
+  "name": "Melaan 阅读书库",
+  "goal": "Android 12+ 本地小说、漫画、电纸书阅读器：7z/ZIP/RAR 漫画流式阅读 + EPUB/PDF/TXT 书籍阅读 + 标签清洗（疑似重复键手动确认合并）",
   "platform": {"os": "Android", "min_sdk": 31, "target_sdk": 37, "language": "Kotlin 2.2.10", "ui": "Jetpack Compose (BOM 2026.02.01)", "package": "com.melavonmen.an"},
   "architecture": {
-    "style": "单 Activity + Compose 状态导航（四 Tab + 详情/阅读器浮层）",
+    "style": "单 Activity + Compose 状态导航（四 Tab + 详情/阅读器浮层，按格式路由漫画或文档阅读器）",
     "layers": [
-      "data-archive: 7z 流式读取（commons-compress）、元数据解析、SAF 扫描、阅读进度持久化",
+      "data-archive: 7z/ZIP/RAR 漫画流式读取、EPUB/PDF/TXT 文档解析、SAF 扫描、阅读进度持久化",
       "data-tags: 标签归一化（TagNormalizer）、变体组、别名覆盖层（TagAliasStore）、标签目录（TagCatalog）",
-      "ui: Shell(四 Tab) / Home(继续阅读) / Library(书架) / Detail / Reader / Tags(筛选+清洗) / Settings"
+      "ui: Shell(四 Tab) / Home(继续阅读) / Library(书架+格式筛选) / Detail / Reader或DocumentReader / Tags(筛选+清洗) / Settings"
     ],
-    "data_flow": "首次扫描或手动重扫 SAF 树 → 解析 7z metadata 与章节目录 → SQLite 保存已解析标签和最小书架索引、应用私有文件保存封面图 → 冷启动恢复 LibraryRepository 并供 UI 使用；阅读时按需流式取 webp 条目 → Bitmap 降采样解码 → 屏幕，不缓存页面；标签统计→变体组→用户确认→别名表→筛选/展示归一"
+    "data_flow": "首次扫描或手动重扫 SAF 树 → 漫画解析 metadata 与章节目录；EPUB 解析 OPF/spine；PDF 读取页数；TXT 解析章节 → SQLite 保存作者/标签和最小书架索引、应用私有文件保存封面图 → 冷启动恢复 LibraryRepository 并供 UI 使用；阅读时按格式路由到漫画页解码、EPUB WebView、PDF PdfRenderer 或 TXT 文本流，不缓存正文页；标签统计→变体组→用户确认→别名表→筛选/展示归一"
   },
   "upstream_inputs": [
-    "漫画库根目录（SAF tree uri）下的 *.7z",
+    "书库根目录（SAF tree uri）下的 *.7z、*.zip/*.cbz、*.rar/*.cbr",
     "7z 内 metadata.json（id/title/authors/tags/works/actors/description/publish_date/update_date/page_count/views/likes/chapters）",
+    "书库根目录下的 *.epub、*.pdf、*.txt",
+    "EPUB 内 META-INF/container.xml、OPF、spine、封面与章节资源",
     "参考原型：comic-app-preview.html、comic-tag-auditor.html"
   ],
   "downstream_outputs": ["阅读进度（SharedPreferences JSON）", "标签别名表（SharedPreferences JSON，canonical → variants[]）"],
@@ -27,7 +29,8 @@
   ],
   "non_goals": [
     "不回写/修改 7z 内 metadata.json（清洗结果只存别名覆盖层）",
-    "不做在线漫画源、账号、云同步",
+    "不做在线漫画/小说/电子书源、账号、云同步",
+    "不做 DRM/加密 EPUB 或加密 PDF 的解密",
     "不做 iOS/桌面端",
     "v1 不做 OPDS/网络库"
   ],

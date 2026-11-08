@@ -56,6 +56,7 @@ import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ReadingProgress
 import com.melavonmen.an.data.TagCatalog
 import com.melavonmen.an.data.TagNormalizer
+import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.TagStat
 import com.melavonmen.an.data.VariantGroup
 import kotlinx.coroutines.Dispatchers
@@ -401,7 +402,7 @@ private fun ResultHead(expr: String, count: Int, onClear: () -> Unit) {
                 Text(" 部", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
-                if (expr.isEmpty()) "全部漫画" else "交集：$expr",
+                if (expr.isEmpty()) "全部作品" else "交集：$expr",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -428,7 +429,7 @@ private fun EmptyResult(expr: String, onClear: () -> Unit) {
             .padding(vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("没有符合条件的漫画", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Text("没有符合条件的作品", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Text(
             if (expr.isEmpty()) "先点选标签或阅读状态"
             else "「$expr」的交集为空\n试试减少标签，或换一个组合",
@@ -473,7 +474,7 @@ private fun ComicCard(
         )
         val meta = buildList {
             if (entry.authors.isNotEmpty()) add("作者：" + entry.authors.joinToString("、"))
-            add("${entry.chapters.size}话")
+            add("${entry.chapters.size} ${chapterNoun(entry.format)}")
             add(formatSize(entry.sizeBytes))
         }.joinToString(" · ")
         Text(

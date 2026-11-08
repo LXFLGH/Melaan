@@ -7,13 +7,13 @@ import android.database.sqlite.SQLiteOpenHelper
 
 /** Stores the parsed tag list and the minimal archive index needed to restore the shelf. */
 internal class LibraryIndexStore(context: Context) :
-    SQLiteOpenHelper(context.applicationContext, "library_index.db", null, 2) {
+    SQLiteOpenHelper(context.applicationContext, "library_index.db", null, 3) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE comics (uri TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, " +
-                "tags TEXT NOT NULL, chapters TEXT NOT NULL, size_bytes INTEGER NOT NULL, cover_entry TEXT, " +
-                "format TEXT NOT NULL DEFAULT '7z')"
+                "authors TEXT NOT NULL DEFAULT '[]', tags TEXT NOT NULL, chapters TEXT NOT NULL, " +
+                "size_bytes INTEGER NOT NULL, cover_entry TEXT, format TEXT NOT NULL DEFAULT '7z')"
         )
     }
 
@@ -21,28 +21,31 @@ internal class LibraryIndexStore(context: Context) :
         if (oldVersion < 2) {
             db.execSQL("ALTER TABLE comics ADD COLUMN format TEXT NOT NULL DEFAULT '7z'")
         }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE comics ADD COLUMN authors TEXT NOT NULL DEFAULT '[]'")
+        }
     }
 
     fun load(): List<ComicEntry> = readableDatabase.rawQuery(
-        "SELECT uri, title, tags, chapters, size_bytes, cover_entry, format FROM comics ORDER BY title COLLATE NOCASE",
+        "SELECT uri, title, authors, tags, chapters, size_bytes, cover_entry, format FROM comics ORDER BY title COLLATE NOCASE",
         null
     ).use { cursor ->
         buildList {
             while (cursor.moveToNext()) {
                 val uri = cursor.getString(0)
-                val chapters = decodeChapters(cursor.getString(3))
+                val chapters = decodeChapters(cursor.getString(4))
                 add(
                     ComicEntry(
                         id = uri,
                         uri = uri,
                         title = cursor.getString(1),
-                        authors = emptyList(),
-                        tags = decodeStrings(cursor.getString(2)),
-                        format = cursor.getString(6) ?: "7z",
+                        authors = decodeStrings(cursor.getString(2)),
+                        tags = decodeStrings(cursor.getString(3)),
+                        format = cursor.getString(7) ?: "7z",
                         isSerial = chapters.any { it.name != "单行本" || it.nestedArchiveEntryPath != null },
                         chapters = chapters,
-                        coverEntryName = cursor.getString(5),
-                        sizeBytes = cursor.getLong(4)
+                        coverEntryName = cursor.getString(6),
+                        sizeBytes = cursor.getLong(5)
                     )
                 )
             }
@@ -61,6 +64,7 @@ internal class LibraryIndexStore(context: Context) :
                     ContentValues().apply {
                         put("uri", entry.uri)
                         put("title", entry.title)
+                        put("authors", encodeStrings(entry.authors))
                         put("tags", encodeStrings(entry.tags))
                         put("chapters", LibraryIndexCodec.encodeChapters(entry.chapters))
                         put("size_bytes", entry.sizeBytes)

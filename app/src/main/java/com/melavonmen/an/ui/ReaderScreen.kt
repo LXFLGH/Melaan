@@ -242,7 +242,7 @@ fun ReaderScreen(comicId: String, chapterIndex: Int, pageIndex: Int, onExit: () 
         try {
             val loaded = withContext(Dispatchers.IO) {
                 val current = LibraryRepository.byId(comicId) ?: throw EntryNotFound(comicId)
-                if (current.chapters.isEmpty()) throw ArchiveFormatException("没有可读取的漫画章节")
+                if (current.chapters.isEmpty()) throw ArchiveFormatException("没有可读取的章节")
                 val target = chapter.coerceIn(0, current.chapters.lastIndex)
                 LibraryRepository.resolveChapterForReading(comicId, target)
             }

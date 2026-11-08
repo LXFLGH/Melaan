@@ -1,13 +1,20 @@
 package com.melavonmen.an.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class ComicEntry(val id:String,val uri:String,val title:String,val authors:List<String>,val tags:List<String>,val format:String,val isSerial:Boolean,val chapters:List<ChapterRef>,val coverEntryName:String?,val sizeBytes:Long)
 
@@ -21,18 +28,18 @@ data class ScanWarning(
 data class ScanReport(val archiveCount: Int, val importedCount: Int, val warnings: List<ScanWarning>)
 
 /**
- * In-memory index over the user's 7z/ZIP comic library (SAF tree).
+ * In-memory index over the user's local 7z/ZIP/RAR comics and EPUB/PDF/TXT books (SAF tree).
  *
- * - [scan] recursively indexes 7z/ZIP archives from one or more SAF trees without extracting anything.
- * - Page bytes are read on demand straight into memory; only cover images are cached on disk.
- * - A SQLite index restores titles, tags and chapter entry paths without reopening every archive.
+ * - [scan] recursively indexes supported files from one or more SAF trees without extracting anything.
+ * - Page/document bytes are read on demand straight into memory; only cover images are cached on disk.
+ * - A SQLite index restores titles, authors, tags and chapter entry paths without reopening every file.
  * - Open archives are kept in a tiny LRU so sequential page turns stay fast.
  */
 object LibraryRepository {
 
     const val PREF_KEY_TREE_URIS = "tree_uris"
     const val PREF_KEY_CHAPTER_PARSER_VERSION = "chapter_parser_version"
-    const val CHAPTER_PARSER_VERSION = 3
+    const val CHAPTER_PARSER_VERSION = 4
 
     private const val MAX_OPEN_READERS = 4
 
@@ -74,7 +81,7 @@ object LibraryRepository {
     suspend fun scan(treeUri: Uri): ScanReport = scan(listOf(treeUri))
 
     suspend fun scan(treeUris: List<Uri>, preserveCoverCache: Boolean = false): ScanReport {
-        if (ExhibitionData.enabled) return ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人漫画库")))
+        if (ExhibitionData.enabled) return ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人书库")))
         val ctx = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
         val previousEntries = entries
@@ -106,7 +113,7 @@ object LibraryRepository {
             try {
                 val result = buildEntry(uri, name)
                 if (result.entry == null) {
-                    warnings += result.warning ?: ScanWarning(name, skippedReason = "没有可读取的漫画页面")
+                    warnings += result.warning ?: ScanWarning(name, skippedReason = "没有可读取的书页或章节")
                 } else {
                     built.add(result.entry)
                     result.warning?.let(warnings::add)
@@ -209,8 +216,13 @@ object LibraryRepository {
             runCatching { cached.readBytes() }.getOrNull()?.let { return it }
         }
         val entry = byId(id) ?: return null
-        val cover = entry.coverEntryName ?: return null
-        val bytes = withReader(id) { it.readEntryBytes(cover) }
+        val bytes = (when {
+            isPdfFormat(entry.format) -> openPdfSession(id).use { session ->
+                PdfPages.coverBytes(session)
+            }
+            entry.coverEntryName == null -> null
+            else -> withReader(id) { it.readEntryBytes(entry.coverEntryName) }
+        }) ?: return null
         runCatching {
             coverFile(id)?.let { file ->
                 file.parentFile?.mkdirs()
@@ -220,9 +232,57 @@ object LibraryRepository {
         return bytes
     }
 
-    suspend fun readAuthors(id: String): List<String> =
-        if (ExhibitionData.enabled) ExhibitionData.comic(id)?.authors.orEmpty()
-        else withReader(id) { it.parseMetadata()?.authors.orEmpty() }
+    suspend fun readAuthors(id: String): List<String> {
+        if (ExhibitionData.enabled) return ExhibitionData.comic(id)?.authors.orEmpty()
+        val entry = byId(id) ?: return emptyList()
+        return if (isEpubFormat(entry.format)) {
+            withReader(id) { EpubParser.parse(it)?.authors.orEmpty() }
+        } else {
+            withReader(id) { it.parseMetadata()?.authors.orEmpty() }
+        }
+    }
+
+    fun openPdfSession(id: String): PdfDocumentSession {
+        if (ExhibitionData.enabled) throw EntryNotFound(id)
+        val entry = synchronized(lock) { idIndex[id] } ?: throw EntryNotFound(id)
+        require(isPdfFormat(entry.format)) { "not a PDF book: $id" }
+        val context = appContext
+            ?: throw IllegalStateException("LibraryRepository.init(context) must be called before opening PDF")
+        val descriptor = context.contentResolver.openFileDescriptor(Uri.parse(entry.uri), "r")
+            ?: throw IOException("cannot open PDF: $id")
+        try {
+            return PdfDocumentSession(descriptor, PdfRenderer(descriptor))
+        } catch (t: Throwable) {
+            runCatching { descriptor.close() }
+            throw t
+        }
+    }
+
+    suspend fun readEpubChapter(id: String, chapterIndex: Int): ByteArray {
+        val entry = byId(id) ?: throw EntryNotFound(id)
+        require(isEpubFormat(entry.format)) { "not an EPUB book: $id" }
+        val path = entry.chapters.getOrNull(chapterIndex)?.pageEntryPaths?.firstOrNull()
+            ?: throw IndexOutOfBoundsException("chapterIndex $chapterIndex out of range")
+        return readResourceBytes(id, path)
+    }
+
+    suspend fun readResourceBytes(id: String, path: String): ByteArray {
+        if (ExhibitionData.enabled) throw EntryNotFound(id)
+        return withContext(Dispatchers.IO) {
+            withReader(id) { it.readEntryBytes(path) }
+        }
+    }
+
+    suspend fun readTextChapter(id: String, chapterIndex: Int): String {
+        val entry = byId(id) ?: throw EntryNotFound(id)
+        require(isTxtFormat(entry.format)) { "not a TXT book: $id" }
+        val bytes = withContext(Dispatchers.IO) { readDocumentBytes(Uri.parse(entry.uri)) }
+        val text = TextDocument.decode(bytes)
+        val chapters = TextDocument.splitChapters(text)
+        return chapters.getOrNull(chapterIndex)?.content
+            ?: chapters.firstOrNull()?.content
+            ?: ""
+    }
 
     fun cacheSizeBytes(): Long = runCatching {
         val coverBytes = coverDirectory()?.listFiles()?.filter(File::isFile)?.sumOf(File::length) ?: 0L
@@ -303,7 +363,17 @@ object LibraryRepository {
 
     private data class BuildResult(val entry: ComicEntry?, val warning: ScanWarning?)
 
-    private fun buildEntry(uri: Uri, displayName: String): BuildResult {
+    private fun buildEntry(uri: Uri, displayName: String): BuildResult = when (libraryFileKind(displayName)) {
+        LibraryFileKind.EPUB -> buildEpubEntry(uri, displayName)
+        LibraryFileKind.PDF -> buildPdfEntry(uri, displayName)
+        LibraryFileKind.TXT -> buildTextEntry(uri, displayName)
+        else -> buildArchiveEntry(uri, displayName)
+    }
+
+    private fun fallbackTitle(displayName: String): String =
+        displayName.substringBeforeLast('.', displayName).ifBlank { displayName }
+
+    private fun buildArchiveEntry(uri: Uri, displayName: String): BuildResult {
         val reader = ArchiveReader.open(uri)
         try {
             val meta = reader.parseMetadata()
@@ -314,15 +384,14 @@ object LibraryRepository {
                 ScanWarning(displayName, missingMetadata = missingMetadata, missingCover = missingCover)
             } else null
             if (chapters.isEmpty()) {
-                return BuildResult(null, warning?.copy(skippedReason = "没有可读取的漫画页面")
-                    ?: ScanWarning(displayName, skippedReason = "没有可读取的漫画页面"))
+                return BuildResult(null, warning?.copy(skippedReason = "没有可读取的书页")
+                    ?: ScanWarning(displayName, skippedReason = "没有可读取的书页"))
             }
             val extension = displayName.substringAfterLast('.', "").lowercase()
             return BuildResult(ComicEntry(
                 id = uri.toString(),
                 uri = uri.toString(),
-                title = meta?.title?.takeIf { it.isNotBlank() }
-                    ?: displayName.substringBeforeLast('.', displayName).ifBlank { displayName },
+                title = meta?.title?.takeIf { it.isNotBlank() } ?: fallbackTitle(displayName),
                 authors = meta?.authors ?: emptyList(),
                 tags = meta?.tags ?: emptyList(),
                 format = when (extension) { "cbz" -> "cbz"; "zip" -> "zip"; "rar" -> "rar"; "cbr" -> "cbr"; else -> "7z" },
@@ -336,6 +405,118 @@ object LibraryRepository {
         }
     }
 
+    private fun buildEpubEntry(uri: Uri, displayName: String): BuildResult {
+        val reader = ArchiveReader.open(uri)
+        try {
+            val info = EpubParser.parse(reader)
+                ?: return BuildResult(null, ScanWarning(displayName, skippedReason = "EPUB OPF 或 spine 无法解析"))
+            val missingMetadata = info.title.isNullOrBlank() || info.authors.isEmpty()
+            val missingCover = info.coverEntryName == null
+            val warning = if (missingMetadata || missingCover) {
+                ScanWarning(displayName, missingMetadata = missingMetadata, missingCover = missingCover)
+            } else null
+            return BuildResult(ComicEntry(
+                id = uri.toString(),
+                uri = uri.toString(),
+                title = info.title?.takeIf(String::isNotBlank) ?: fallbackTitle(displayName),
+                authors = info.authors,
+                tags = info.tags,
+                format = "epub",
+                isSerial = info.chapters.size > 1,
+                chapters = info.chapters,
+                coverEntryName = info.coverEntryName,
+                sizeBytes = reader.sizeBytes()
+            ), warning)
+        } finally {
+            closeQuietly(reader)
+        }
+    }
+
+    private fun buildPdfEntry(uri: Uri, displayName: String): BuildResult {
+        val context = appContext
+            ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
+        val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
+            ?: throw IOException("cannot open PDF: $displayName")
+        try {
+            val renderer = PdfRenderer(descriptor)
+            val result: BuildResult = try {
+                val pageCount = renderer.pageCount
+                if (pageCount <= 0) {
+                    BuildResult(null, ScanWarning(displayName, skippedReason = "PDF 不含可渲染页面"))
+                } else {
+                    val chapters = listOf(
+                        ChapterRef(
+                            name = "PDF",
+                            pageEntryPaths = (0 until pageCount).map { "pdf:$it" },
+                            nestedArchiveEntryPath = null,
+                        )
+                    )
+                    BuildResult(
+                        ComicEntry(
+                            id = uri.toString(),
+                            uri = uri.toString(),
+                            title = fallbackTitle(displayName),
+                            authors = emptyList(),
+                            tags = emptyList(),
+                            format = "pdf",
+                            isSerial = false,
+                            chapters = chapters,
+                            coverEntryName = null,
+                            sizeBytes = fileLength(context, uri)
+                        ),
+                        null
+                    )
+                }
+            } finally {
+                runCatching { renderer.close() }
+            }
+            return result
+        } finally {
+            runCatching { descriptor.close() }
+        }
+    }
+
+    private fun buildTextEntry(uri: Uri, displayName: String): BuildResult {
+        val context = appContext
+            ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
+        val bytes = readDocumentBytes(uri)
+        val text = TextDocument.decode(bytes)
+        val chapters = TextDocument.splitChapters(text)
+        if (text.isBlank()) {
+            return BuildResult(null, ScanWarning(displayName, skippedReason = "TXT 文件为空"))
+        }
+        return BuildResult(
+            ComicEntry(
+                id = uri.toString(),
+                uri = uri.toString(),
+                title = fallbackTitle(displayName),
+                authors = emptyList(),
+                tags = emptyList(),
+                format = "txt",
+                isSerial = chapters.size > 1,
+                chapters = chapters.map { chapter ->
+                    ChapterRef(chapter.title, listOf("txt"), null)
+                },
+                coverEntryName = null,
+                sizeBytes = fileLength(context, uri)
+            ),
+            null
+        )
+    }
+
+    private fun fileLength(context: Context, uri: Uri): Long = runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getLong(0) else 0L
+        } ?: 0L
+    }.getOrDefault(0L)
+
+    private fun readDocumentBytes(uri: Uri): ByteArray {
+        val context = appContext
+            ?: throw IllegalStateException("LibraryRepository.init(context) must be called before reading documents")
+        return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw IOException("cannot open document: $uri")
+    }
+
     private fun displayName(uri: Uri): String {
         val ctx = appContext ?: return uri.lastPathSegment?.substringAfterLast(':').orEmpty()
         val queried = runCatching {
@@ -344,7 +525,7 @@ object LibraryRepository {
             }
         }.getOrNull()
         return queried?.takeIf(String::isNotBlank)
-            ?: Uri.decode(uri.lastPathSegment.orEmpty().substringAfterLast(':')).ifBlank { "未知归档" }
+            ?: Uri.decode(uri.lastPathSegment.orEmpty().substringAfterLast(':')).ifBlank { "未知文件" }
     }
 
     private fun withUserTags(entry: ComicEntry): ComicEntry {

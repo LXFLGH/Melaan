@@ -8,10 +8,20 @@ import java.util.ArrayDeque
 
 internal enum class ArchiveKind { SEVEN_Z, ZIP, RAR }
 
+internal enum class LibraryFileKind { ARCHIVE, EPUB, PDF, TXT }
+
 internal fun archiveKind(displayName: String): ArchiveKind? = when (displayName.substringAfterLast('.', "").lowercase()) {
     "7z" -> ArchiveKind.SEVEN_Z
     "zip", "cbz" -> ArchiveKind.ZIP
     "rar", "cbr" -> ArchiveKind.RAR
+    else -> null
+}
+
+internal fun libraryFileKind(displayName: String): LibraryFileKind? = when (displayName.substringAfterLast('.', "").lowercase()) {
+    "7z", "zip", "cbz", "rar", "cbr" -> LibraryFileKind.ARCHIVE
+    "epub" -> LibraryFileKind.EPUB
+    "pdf" -> LibraryFileKind.PDF
+    "txt" -> LibraryFileKind.TXT
     else -> null
 }
 
@@ -64,7 +74,7 @@ object LibraryScanner {
                         val displayName = row.second ?: continue
                         if (row.third == DocumentsContract.Document.MIME_TYPE_DIR) {
                             if (depth < MAX_DEPTH) pending.addLast(id to depth + 1)
-                        } else if (archiveKind(displayName) != null) {
+                        } else if (libraryFileKind(displayName) != null) {
                             val uri = runCatching {
                                 DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                             }.getOrNull() ?: continue

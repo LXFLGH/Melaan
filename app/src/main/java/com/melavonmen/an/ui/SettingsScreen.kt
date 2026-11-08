@@ -86,7 +86,7 @@ import kotlin.math.sin
  * (扫描管理/阅读设置/缓存与数据库/R18 封面屏蔽/深色阅读模式/阅读时屏幕常亮) + 统计条(藏书/已读页数/连续阅读)。
  *
  * 设置项持久化（SharedPreferences "melaan_settings"，阅读器集成契约，勿改键名）：
- *   tree_uri: String   — SAF 漫画文件夹 tree uri
+ *   tree_uri: String   — SAF 本地书库 tree uri
  *   dark_reading: Boolean (默认 true)   — 深色阅读模式
  *   keep_screen_on: Boolean (默认 false) — 阅读时屏幕常亮
  *   r18_cover_blocked: Boolean (默认 false) — 全局封面灰色屏蔽
@@ -377,7 +377,7 @@ fun SettingsScreen(
                     }
                 } else if (kind == "backup") {
                     Column {
-                        Text("备份包含阅读进度、书签、标签和书架数据，不包含漫画文件。恢复时只补入本机缺少的数据。")
+                        Text("备份包含阅读进度、书签、标签和书架数据，不包含原始书籍文件。恢复时只补入本机缺少的数据。")
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 12.dp)) {
                             Text("导出", color = Accent, modifier = Modifier.clickable { infoDialog = null; backupExport.launch("melaan-backup.json") })
                             Text("导入", color = Accent, modifier = Modifier.clickable { infoDialog = null; backupImport.launch(arrayOf("application/json", "text/*")) })
@@ -385,7 +385,7 @@ fun SettingsScreen(
                     }
                 } else {
                     Text(
-                        "本地 SQLite 保存已解析标签和恢复书架所需的最小索引，封面图片保存在应用私有目录；漫画页面仍从 7z / ZIP 按需读取，不缓存。重新扫描会刷新书架和封面。"
+                        "本地 SQLite 保存已解析标签和恢复书架所需的最小索引，封面图片保存在应用私有目录；书籍内容按需读取，不缓存。重新扫描会刷新书架和封面。"
                     )
                 }
             }
@@ -424,7 +424,7 @@ fun SettingsScreen(
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("漫画文件夹", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                    Text("本地文件夹", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
                     Text("${treeUris.size} 个目录", fontSize = 10.sp, color = SubText, modifier = Modifier.padding(top = 2.dp))
                 }
             }
@@ -453,7 +453,7 @@ fun SettingsScreen(
                 }) { Text(if (scanning) "扫描中…" else "重新扫描") }
             }
             Text(
-                "已索引 $indexedCount 部 · 支持 7z / ZIP",
+                "已索引 $indexedCount 部 · 支持 EPUB / PDF / TXT / 7z / ZIP",
                 fontSize = 10.sp,
                 color = SubText,
                 modifier = Modifier.padding(top = 10.dp)
@@ -517,7 +517,7 @@ fun SettingsScreen(
             MenuRow(
                 icon = { TintedIconBox(Accent.copy(alpha = 0.1f)) { Icon(Icons.Default.List, null, tint = Accent, modifier = Modifier.size(15.dp)) } },
                 title = "扫描管理",
-                subtitle = "管理多个漫画目录并扫描新作品",
+                subtitle = "管理多个本地文件夹并扫描新书籍",
                 value = if (treeUris.isNotEmpty()) "${treeUris.size} 个" else "—",
                 onClick = { picker.launch(null) }
             )

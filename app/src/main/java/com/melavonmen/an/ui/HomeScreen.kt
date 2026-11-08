@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ReadingProgress
+import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.TagAliasStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -272,7 +273,7 @@ private fun HomeHeader(all: List<ComicEntry>) {
             .padding(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text("漫匣", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Ink, letterSpacing = 1.sp)
+            Text("Melaan 阅读", fontSize = 21.sp, fontWeight = FontWeight.Black, color = Ink, letterSpacing = 1.sp)
             Box(
                 Modifier
                     .padding(start = 3.dp, bottom = 4.dp)
@@ -289,7 +290,7 @@ private fun HomeHeader(all: List<ComicEntry>) {
             )
             Spacer(Modifier.width(7.dp))
             Text(
-                "本地库已同步 · ${all.size} 部 · ${formatSize(totalBytes)}",
+                "本地书库已同步 · ${all.size} 部 · ${formatSize(totalBytes)}",
                 fontSize = 10.5.sp,
                 color = Sub
             )
@@ -302,7 +303,7 @@ private fun HomeHeader(all: List<ComicEntry>) {
 @Composable
 private fun ResumeCard(entry: ComicEntry, progress: ReadingProgress, onRead: (String) -> Unit) {
     val chapterIndex = progress.chapterIndex.coerceIn(0, (entry.chapters.size - 1).coerceAtLeast(0))
-    val chapterName = chapterLabel(chapterIndex)
+    val chapterName = chapterLabel(chapterIndex, entry.format)
     val remain = (entry.chapters.size - chapterIndex - 1).coerceAtLeast(0)
     val percent = progress.percent.coerceIn(0, 100)
     val frac = (percent / 100f).coerceIn(0f, 1f)
@@ -638,7 +639,7 @@ private fun RecentCard(entry: ComicEntry, onOpenComic: (String) -> Unit) {
         )
         Spacer(Modifier.height(2.dp))
         Text(
-            "${entry.chapters.size} 话 · ${formatSize(entry.sizeBytes)}",
+            "${entry.chapters.size} ${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}",
             fontSize = 9.5.sp,
             color = Sub,
             maxLines = 1,
@@ -702,7 +703,7 @@ private fun ShelfCard(
         )
         Spacer(Modifier.height(3.dp))
         Text(
-            "${entry.chapters.size} 话 · ${formatSize(entry.sizeBytes)}",
+            "${entry.chapters.size} ${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}",
             fontSize = 10.5.sp,
             color = Sub,
             maxLines = 1,
@@ -734,7 +735,7 @@ private fun EmptyLibrary() {
     ) {
         Text("书库为空", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Spacer(Modifier.height(6.dp))
-        Text("在「我的」页选择文件夹扫描 7z 漫画库", fontSize = 11.sp, color = Sub)
+        Text("在「我的」页选择文件夹扫描本地书库", fontSize = 11.sp, color = Sub)
     }
 }
 
@@ -789,14 +790,14 @@ private fun CoverImage(id: String, modifier: Modifier, targetW: Int) {
     }
 }
 
-private fun formatSize(bytes: Long): String = when {
-    bytes >= 1L shl 30 -> "%.1f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
+private fun formatSize(bytes: Long): String = when {    bytes >= 1L shl 30 -> "%.1f GB".format(bytes / (1024.0 * 1024.0 * 1024.0))
     bytes >= 1L shl 20 -> "%.0f MB".format(bytes / (1024.0 * 1024.0))
     bytes >= 1L shl 10 -> "%.0f KB".format(bytes / 1024.0)
     else -> "${bytes} B"
 }
 
-private fun chapterLabel(index: Int): String = "第${index.coerceAtLeast(0) + 1}话"
+private fun chapterLabel(index: Int, format: String): String =
+    "第${index.coerceAtLeast(0) + 1}${chapterNoun(format)}"
 
 private fun tagColor(tag: String): Color =
     TagDots[(tag.hashCode() and Int.MAX_VALUE) % TagDots.size]

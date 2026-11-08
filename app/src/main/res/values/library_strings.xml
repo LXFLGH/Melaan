@@ -13,7 +13,7 @@
     <string name="library_tag_label">标签</string>
     <string name="library_confirm">确认</string>
     <string name="library_cancel">取消</string>
-    <string name="library_history_entry">%1$s · 第%2$d话 · 第%3$d页</string>
+    <string name="library_history_entry">%1$s · 第%2$d章 · 第%3$d页</string>
     <string name="library_history_timestamp">阅读时间：%1$s</string>
     <string name="library_booklists">书单</string>
     <string name="library_all_books">全部作品</string>

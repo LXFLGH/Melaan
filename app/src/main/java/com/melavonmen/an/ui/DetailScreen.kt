@@ -65,6 +65,7 @@ import androidx.compose.material.icons.filled.Delete
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.ProgressStore
+import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.ReadingProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -136,10 +137,10 @@ fun DetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("删除漫画？") },
+            title = { Text("删除作品？") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("选择删除范围。删除本地文件后，归档将从设备中移除。")
+                    Text("选择删除范围。删除本地文件后，书籍文件将从设备中移除。")
                     TextButton(onClick = {
                         showDeleteDialog = false
                         onDelete(comicId, false)
@@ -254,7 +255,7 @@ private fun DetailHero(entry: ComicEntry, onBack: () -> Unit, onRequestDelete: (
             GlassSurface(modifier = Modifier.size(38.dp), shape = RoundedCornerShape(13.dp)) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     IconButton(onClick = onRequestDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "删除漫画", tint = MaterialTheme.colorScheme.error)
+                        Icon(Icons.Default.Delete, contentDescription = "删除作品", tint = MaterialTheme.colorScheme.error)
                     }
                 }
             }
@@ -293,7 +294,7 @@ private fun DetailHero(entry: ComicEntry, onBack: () -> Unit, onRequestDelete: (
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${entry.chapters.size} 话 · ${formatSize(entry.sizeBytes)} · ${entry.format.uppercase()}",
+                    "${entry.chapters.size} ${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)} · ${entry.format.uppercase()}",
                     fontSize = 10.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 16.sp
@@ -348,7 +349,7 @@ private fun ActionRow(
             Text("▶", fontSize = 10.sp, color = Color.White)
             Spacer(Modifier.width(6.dp))
             Text(
-                "继续阅读 · ${chapterLabel(resumeChapter)}",
+                "继续阅读 · ${chapterLabel(resumeChapter, entry.format)}",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color.White
@@ -384,7 +385,7 @@ private fun ProgressBlock(entry: ComicEntry, progress: ReadingProgress?) {
             Bar((percent / 100f).coerceIn(0f, 1f))
             Spacer(Modifier.height(10.dp))
             Text(
-                "已读 $percent% · 读至${chapterLabel(progress.chapterIndex)} / 共 ${entry.chapters.size} 话 · 第 ${progress.pageIndex + 1} 页",
+                "已读 $percent% · 读至${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} ${chapterNoun(entry.format)} · 第 ${progress.pageIndex + 1} 页",
                 fontSize = 11.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -437,7 +438,7 @@ private fun ChapterBlock(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    chapterLabel(idx),
+                                    chapterLabel(idx, entry.format),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = when {
@@ -599,5 +600,6 @@ private fun formatSize(bytes: Long): String = when {
     else -> "${bytes} B"
 }
 
-private fun chapterLabel(index: Int): String = "第${index.coerceAtLeast(0) + 1}话"
+private fun chapterLabel(index: Int, format: String): String =
+    "第${index.coerceAtLeast(0) + 1}${chapterNoun(format)}"
 

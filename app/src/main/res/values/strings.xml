@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Melavonmen An</string>
+    <string name="app_name">Melaan 阅读</string>
     <string name="settings_r18_cover_blocking">R18 封面屏蔽</string>
-    <string name="settings_r18_cover_blocking_summary">开启后所有漫画封面显示为灰色</string>
+    <string name="settings_r18_cover_blocking_summary">开启后所有书籍封面显示为灰色</string>
 </resources>

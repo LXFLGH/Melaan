@@ -86,7 +86,7 @@ private fun StartupScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             CircularProgressIndicator()
-            Text("正在载入漫画库…")
+            Text("正在载入本地书库…")
         }
     }
 }

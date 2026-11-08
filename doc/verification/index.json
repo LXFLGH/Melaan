@@ -154,6 +154,12 @@
       "cmd": ".\\gradlew.bat :app:assembleDebug --console=plain; adb -s <connected-device> install -r app/build/outputs/apk/debug/app-debug.apk; adb -s <connected-device> shell dumpsys package com.melavonmen.an",
       "pass": "BUILD SUCCESSFUL; adb install Success; device package reports versionName=1.0.12 versionCode=13",
       "covers": ["R47"]
+    },
+    {
+      "id": "V17",
+      "cmd": "JAVA_HOME='C:/Program Files/Android/Android Studio/jbr' D:/Mycode/Melaan/gradlew -p D:/Mycode/Melaan :app:testDebugUnitTest :app:assembleDebug --console=plain",
+      "pass": "BUILD SUCCESSFUL; 69 tests, 0 failures, 0 errors; adb install Success; device package reports versionName=1.1.0 versionCode=14; APK sha256 bc166cb6ac7391ad26a457305e441b128bbb845fa9076e7dce4774c6b40d4c93; 实机打开三类文件并验证进度单独手动验收",
+      "covers": ["R49", "R50", "R51", "R52"]
     }
   ],
   "manual_review": [
@@ -168,6 +174,8 @@
     "实机验证自动切话、书签跳转和长条漫画滚动位置恢复。",
     "在 a nested comic archive 上确认 438 个内层章节 ZIP 可逐话打开，且扫描阶段不展开整本。",
     "Connected Android instrumentation test 先前受 INSTALL_GRANT_RUNTIME_PERMISSIONS / INSTALL_FAILED_USER_RESTRICTED 限制，未执行测试方法。",
-    "依次手动点击首页/书架/标签/我的并往返切换，确认无卡顿、内容/筛选/进度正确；ADB input 被 INJECT_EVENTS 拒绝，无法自动注入导航点击。"
+    "依次手动点击首页/书架/标签/我的并往返切换，确认无卡顿、内容/筛选/进度正确；ADB input 被 INJECT_EVENTS 拒绝，无法自动注入导航点击。",
+    "在实机上分别打开至少一本本地 EPUB、PDF、TXT，确认书库筛选、封面、翻章/翻页和进度恢复。",
+    "在实机 EPUB 中确认图片/CSS 资源加载、外部链接被拦截、WebView 关闭后无资源泄漏。"
   ]
 }

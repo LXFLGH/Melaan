@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "id": "decision-local-documents",
+  "status": "approved",
+  "options": [
+    {
+      "id": "epub-text-flow",
+      "tradeoffs": "排版可控、进度稳，但复杂 CSS 与图文混排降级，用户已否决。"
+    },
+    {
+      "id": "epub-webview-fidelity",
+      "tradeoffs": "保留 EPUB 的 XHTML/CSS 与图片；进度和主题适配复杂。用户选择。"
+    },
+    {
+      "id": "pdf-custom-parser",
+      "tradeoffs": "不引入新依赖但工作量大；使用 Android PdfRenderer 更稳。"
+    },
+    {
+      "id": "txt-chapter-split",
+      "tradeoffs": "常见中文章节可导航；无标题文件退化为单章正文。"
+    }
+  ],
+  "chosen": "epub-webview-fidelity + Android PdfRenderer + TXT 文本流",
+  "tradeoffs": [
+    "EPUB 用 WebView 渲染原始 XHTML/CSS；不追求复杂阅读主题改写",
+    "PDF 使用系统 PdfRenderer 按页渲染，不新增第三方 PDF 依赖",
+    "TXT 先支持常见中文章节标题切分，无标题时单章正文",
+    "统一索引继续复用 ComicEntry 存储结构以降低迁移风险；UI/文档语义改为通用书籍",
+    "用户可见文案改为 Melaan 阅读/书库/书籍；内部遗留 Comic* 符号不作为本轮重命名目标"
+  ],
+  "user_confirmation": "用户确认：格式范围 EPUB+PDF+TXT；EPUB 采用 WebView 保真；统一书库+类型筛选；文案采用 Melaan 阅读/书库。",
+  "affected_contracts": ["local-documents", "archive-stream", "reader-experience", "library-scan-report"]
+}

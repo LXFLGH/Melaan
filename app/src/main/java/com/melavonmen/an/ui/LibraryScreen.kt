@@ -62,11 +62,15 @@ import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibraryCollectionsStore
 import com.melavonmen.an.data.LibraryMaintenance
 import com.melavonmen.an.data.LibrarySnapshot
+import com.melavonmen.an.data.MediaKind
 import com.melavonmen.an.data.ReadingProgress
 import java.text.DateFormat
 import java.util.Date
 import com.melavonmen.an.data.TagAliasStore
 import com.melavonmen.an.data.TagCatalog
+import com.melavonmen.an.data.chapterNoun
+import com.melavonmen.an.data.isDocumentFormat
+import com.melavonmen.an.data.mediaKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -147,6 +151,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
     var sortMode by remember { mutableStateOf(SortMode.RECENT) }
     var sortMenuOpen by remember { mutableStateOf(false) }
+    var selectedKind by remember { mutableStateOf<MediaKind?>(null) }
     val context = LocalContext.current
     val collections = remember(context) { LibraryCollectionsStore(context) }
     var favorites by remember { mutableStateOf(collections.favorites()) }
@@ -195,11 +200,12 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
 
     // 交集筛选（点选交集；status 为分段阅读状态，null=全部）
     // 契约：TagCatalog.filterIntersection(entries, alias, tags, status) -> List<ComicEntry>
-    val filtered = remember(comics, progressById, selectedTags, segment, favorites, favoriteOnly, activeBookList, bookLists) {
+    val filtered = remember(comics, progressById, selectedTags, segment, favorites, favoriteOnly, activeBookList, bookLists, selectedKind) {
         val tagged = TagCatalog.filterIntersection(comics, TagAliasStore, selectedTags, null)
         (segment.status?.let { status -> tagged.filter { statusOf(progressById[it.id]) == status } } ?: tagged)
             .filter { !favoriteOnly || it.id in favorites }
             .filter { activeBookList == null || bookLists.firstOrNull { list -> list.name == activeBookList }?.comicIds?.contains(it.id) == true }
+            .filter { selectedKind == null || mediaKind(it.format) == selectedKind }
     }
     val display = remember(filtered, sortMode, progressById) {
         when (sortMode) {
@@ -227,6 +233,18 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 color = Ink,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                FormatFilterChip(label = "全部", selected = selectedKind == null) { selectedKind = null }
+                MediaKind.entries.forEach { kind ->
+                    FormatFilterChip(label = kind.label, selected = selectedKind == kind) { selectedKind = kind }
+                }
+            }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Text("检查疑似重复作品", color = Accent, modifier = Modifier.clickable {
@@ -413,7 +431,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "共 ${display.size} 部 · ${formatSize(totalSize)} · 支持 7z 压缩包",
+                    "共 ${display.size} 部 · ${formatSize(totalSize)} · 支持 EPUB / PDF / TXT / 7z / ZIP",
                     fontSize = 10.5.sp,
                     color = SubText
                 )
@@ -442,7 +460,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                         .padding(vertical = 36.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("没有符合条件的漫画", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Ink)
+                    Text("没有符合条件的作品", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Ink)
                     Text(
                         "试试减少标签，或换一个组合",
                         fontSize = 11.sp,
@@ -521,7 +539,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
         AlertDialog(
             onDismissRequest = { removingDuplicate = null },
             title = { Text("从书架移除？") },
-            text = { Text("仅移除本地书架记录，不会删除漫画文件。${entry?.title.orEmpty()}") },
+            text = { Text("仅移除本地书架记录，不会删除原始书籍文件。${entry?.title.orEmpty()}") },
             confirmButton = { TextButton(onClick = {
                 removingDuplicate = null
                 scope.launch {
@@ -534,6 +552,24 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 }
             }) { Text("移除记录") } },
             dismissButton = { TextButton(onClick = { removingDuplicate = null }) { Text("取消") } }
+        )
+    }
+}
+
+@Composable
+private fun FormatFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(if (selected) Accent else MaterialTheme.colorScheme.surface.copy(alpha = 0.48f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 13.dp, vertical = 7.dp)
+    ) {
+        Text(
+            label,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) Color.White else ChipText,
         )
     }
 }
@@ -553,7 +589,7 @@ private fun ComicCard(
         "未开始 · ${formatSize(entry.sizeBytes)}"
     } else {
         val ch = entry.chapters.size.coerceAtLeast(1)
-        "第${progress.chapterIndex + 1}/${ch}话 · ${formatSize(entry.sizeBytes)}"
+        "第${progress.chapterIndex + 1}/${ch}${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}"
     }
 
     GlassSurface(

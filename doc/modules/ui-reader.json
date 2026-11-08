@@ -1,18 +1,21 @@
 {
   "schema_version": "1.0",
   "id": "ui-reader",
-  "responsibilities": "流式阅读器：按需解码 7z/ZIP/RAR 页面；选中嵌套章节时解析该话 ZIP/CBZ 页目录并在切话/退出时释放；点击/滑动翻页、垂直长条懒加载与位置恢复、页码/进度/章节跳转、多个书签、可选自动切话、缩放/平移、音量键、亮度、横屏双页和单本覆盖设置",
+  "responsibilities": "通用阅读器：漫画页按需解码与嵌套章节解析；EPUB 用 WebView 保真渲染 spine 章节；PDF 用 PdfRenderer 按页渲染；TXT 用文本流分章滚动。支持章节/页定位、进度保存、书签、亮度和主题化阅读控件",
   "source_paths": [
     "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DocumentReaderScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
     "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt",
     "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt"
   ],
   "entrypoints": [
-    "ReaderScreen(comicId, chapterIndex, pageIndex, onExit)"
+    "ReaderScreen(comicId, chapterIndex, pageIndex, onExit)",
+    "DocumentReaderScreen(entry, chapterIndex, onExit)"
   ],
   "public_symbols": [
     "ReaderScreen",
+    "DocumentReaderScreen",
     "ReaderSettingsStore.load",
     "ReaderSettingsStore.save",
     "ReaderSettingsStore.loadAutoNext/saveAutoNext",
@@ -29,15 +32,19 @@
   "dependencies": [
     "data-archive ArchiveReader",
     "data-archive nested chapter resolver",
+    "data-archive EpubParser/PdfPages/TextDocument",
     "data-archive ProgressStore",
-    "data-archive LibraryCollectionsStore"
+    "data-archive LibraryCollectionsStore",
+    "android.webkit.WebView",
+    "android.graphics.pdf.PdfRenderer"
   ],
   "related_contracts": [
     "contracts/archive-stream.json",
     "contracts/reading-progress.json",
     "contracts/reader-experience.json",
     "contracts/local-reader-t0-t5.json",
-    "contracts/nested-chapter-archive.json"
+    "contracts/nested-chapter-archive.json",
+    "contracts/local-documents.json"
   ],
   "related_wiki": []
 }

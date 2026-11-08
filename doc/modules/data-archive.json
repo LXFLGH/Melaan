@@ -1,11 +1,13 @@
 {
   "schema_version": "1.0",
   "id": "data-archive",
-  "responsibilities": "7z/ZIP/CBZ 与单卷未加密 RAR/CBR 流式只读；外层归档内的 ZIP/CBZ 子归档延迟到选中章节时解析；漫画页不落盘。负责 SAF 递归扫描、元数据容错、扫描警告、封面专用缓存、最小书架索引、章节/页编排、阅读进度与书签持久化",
+  "responsibilities": "统一本地书籍索引：7z/ZIP/CBZ/RAR/CBR 漫画归档流式只读，EPUB/PDF/TXT 本地书籍解析与按需读取；外层归档内的 ZIP/CBZ 子归档延迟到选中章节时解析；文档页/漫画页不落盘。负责 SAF 递归扫描、元数据容错、扫描警告、封面专用缓存、最小书架索引、章节/页编排、阅读进度与书签持久化",
   "source_paths": [
     "app/src/main/java/com/melavonmen/an/data/ArchiveReader.kt",
     "app/src/main/java/com/melavonmen/an/data/Metadata.kt",
     "app/src/main/java/com/melavonmen/an/data/LibraryScanner.kt",
+    "app/src/main/java/com/melavonmen/an/data/EpubParser.kt",
+    "app/src/main/java/com/melavonmen/an/data/TextDocument.kt",
     "app/src/main/java/com/melavonmen/an/data/LibraryRepository.kt",
     "app/src/main/java/com/melavonmen/an/data/ProgressStore.kt",
     "app/src/main/java/com/melavonmen/an/data/LibrarySnapshot.kt",
@@ -34,6 +36,11 @@
     "ReadingProgress",
     "ProgressStore",
     "LibrarySnapshot",
+    "EpubParser",
+    "TextDocument",
+    "MediaKind",
+    "PdfDocumentSession",
+    "PdfPages",
     "BookmarkStore",
     "LibraryMaintenance"
   ],
@@ -76,7 +83,8 @@
     "contracts/reading-progress.json",
     "contracts/local-reader-t0-t5.json",
     "contracts/nested-chapter-archive.json",
-    "contracts/navigation-switch-performance.json"
+    "contracts/navigation-switch-performance.json",
+    "contracts/local-documents.json"
   ],
   "related_wiki": []
 }
