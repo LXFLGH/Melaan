@@ -175,6 +175,10 @@
       {
         "id": "changes-local-documents",
         "path": "changes/local-documents.json"
+      },
+      {
+        "id": "changes-issue-2-reader-correctness",
+        "path": "changes/issue-2-reader-correctness.json"
       }
     ],
     "verification": "verification/index.json"
@@ -353,6 +357,20 @@
         "modules/ui-reader.json",
         "modules/ui-shell.json",
         "changes/local-documents.json",
+        "verification/index.json"
+      ]
+    },
+    {
+      "task": "T16-issue-2-reader-correctness",
+      "read": [
+        "project.json",
+        "requirements.json",
+        "contracts/reading-progress.json",
+        "contracts/local-documents.json",
+        "contracts/reader-experience.json",
+        "modules/ui-reader.json",
+        "modules/data-archive.json",
+        "changes/issue-2-reader-correctness.json",
         "verification/index.json"
       ]
     }
