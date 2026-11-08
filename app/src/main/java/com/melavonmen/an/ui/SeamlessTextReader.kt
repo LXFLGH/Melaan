@@ -50,6 +50,7 @@ internal fun SeamlessTextReader(
     initialChapter: Int,
     initialUnits: Int,
     requestedChapter: Int,
+    requestedUnits: Int,
     seekToken: Int,
     preferences: DocumentReaderPreferences,
     onPositionChange: (Int, Int) -> Unit,
@@ -129,7 +130,7 @@ internal fun SeamlessTextReader(
             return@LaunchedEffect
         }
         if (cache[target]?.isSuccess != true) return@LaunchedEffect
-        val units = if (seekToken == 0) initialUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS) else 0
+        val units = if (seekToken == 0) initialUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS) else requestedUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)
         val targetRows = rows.withIndex().filter { it.value.chapter == target && it.value.part >= 0 }
         val rowIndex = targetRows.lastOrNull { it.value.progressStart <= units }?.index
             ?: rows.indexOfFirst { it.chapter == target }
