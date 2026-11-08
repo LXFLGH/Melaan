@@ -13,7 +13,18 @@ import java.io.IOException
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException as CoroutineCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 data class ComicEntry(val id:String,val uri:String,val title:String,val authors:List<String>,val tags:List<String>,val format:String,val isSerial:Boolean,val chapters:List<ChapterRef>,val coverEntryName:String?,val sizeBytes:Long)
@@ -59,6 +70,34 @@ object LibraryRepository {
     private val readers = LinkedHashMap<String, ArchiveReader>(8, 0.75f, true)
     private var activeNestedReader: Pair<String, ArchiveReader>? = null
     private val lock = Any()
+    private val scanRunLock = Mutex()
+    private val scanStartLock = Any()
+    private val scanScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var activeScanJob: Job? = null
+    private val mutableScanProgress = MutableStateFlow(LibraryScanProgress())
+    val scanProgress: StateFlow<LibraryScanProgress> = mutableScanProgress
+
+    /** Runs outside a screen's lifecycle, so tab changes cannot cancel a newly added library. */
+    fun startScan(treeUris: List<Uri>, preserveCoverCache: Boolean = false) {
+        val requestedUris = treeUris.toList()
+        synchronized(scanStartLock) {
+            activeScanJob?.cancel()
+            mutableScanProgress.value = LibraryScanProgress(phase = LibraryScanPhase.DISCOVERING)
+            activeScanJob = scanScope.launch {
+                try {
+                    scan(requestedUris, preserveCoverCache)
+                } catch (cancelled: CoroutineCancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    mutableScanProgress.value = mutableScanProgress.value.copy(
+                        phase = LibraryScanPhase.FAILED,
+                        error = error.message ?: "书库扫描失败",
+                        completedAtMillis = System.currentTimeMillis(),
+                    )
+                }
+            }
+        }
+    }
 
     fun init(context: Context) {
         appContext = context.applicationContext
@@ -82,8 +121,13 @@ object LibraryRepository {
 
     suspend fun scan(treeUri: Uri): ScanReport = scan(listOf(treeUri))
 
-    suspend fun scan(treeUris: List<Uri>, preserveCoverCache: Boolean = false): ScanReport {
-        if (ExhibitionData.enabled) return ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人书库")))
+    suspend fun scan(treeUris: List<Uri>, preserveCoverCache: Boolean = false): ScanReport = withContext(Dispatchers.IO) {
+        scanRunLock.withLock {
+        if (ExhibitionData.enabled) return@withLock ScanReport(0, 0, listOf(ScanWarning("展览模式", skippedReason = "展览模式不会扫描个人书库")))
+        val currentJob = currentCoroutineContext()[Job]
+        mutableScanProgress.value = LibraryScanProgress(phase = LibraryScanPhase.DISCOVERING)
+        var discoveredCount = 0
+
         val ctx = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
         val previousEntries = entries
@@ -95,7 +139,17 @@ object LibraryRepository {
         val failedTrees = ArrayList<Uri>()
         for (treeUri in treeUris.distinctBy(Uri::toString)) {
             try {
-                for (uri in LibraryScanner.findArchiveUris(ctx.contentResolver, treeUri)) {
+                for (uri in LibraryScanner.findArchiveUris(ctx.contentResolver, treeUri) { _, name ->
+                    currentJob?.ensureActive()
+                    discoveredCount++
+                    if (discoveredCount <= 12 || discoveredCount % 12 == 0) {
+                        mutableScanProgress.value = mutableScanProgress.value.copy(
+                            discoveredCount = discoveredCount,
+                            currentFile = name,
+                        )
+                    }
+                }) {
+                    currentJob?.ensureActive()
                     val key = runCatching {
                         "${uri.authority}:${android.provider.DocumentsContract.getDocumentId(uri)}"
                     }.getOrDefault(uri.toString())
@@ -112,8 +166,14 @@ object LibraryRepository {
             }
         }
         val uris = uniqueUris.values.toList()
+        mutableScanProgress.value = LibraryScanProgress(
+            phase = LibraryScanPhase.INDEXING,
+            discoveredCount = uris.size,
+        )
         val built = ArrayList<ComicEntry>(uris.size)
+        var processedCount = 0
         for (uri in uris) {
+            currentJob?.ensureActive()
             val name = displayName(uri)
             try {
                 val size = fileLength(ctx, uri)
@@ -139,8 +199,18 @@ object LibraryRepository {
                 throw e
             } catch (e: Exception) {
                 warnings += ScanWarning(name, skippedReason = e.message ?: "归档损坏或无法读取")
+            } finally {
+                processedCount++
+                if (processedCount <= 12 || processedCount % 8 == 0 || processedCount == uris.size) {
+                    mutableScanProgress.value = mutableScanProgress.value.copy(
+                        processedCount = processedCount,
+                        importedCount = built.size,
+                        currentFile = name,
+                    )
+                }
             }
         }
+        currentJob?.ensureActive()
         val builtIds = built.mapTo(HashSet()) { it.id }
         previousEntries.forEach { entry ->
             val belongsToFailedTree = failedTrees.any { treeUri ->
@@ -176,7 +246,17 @@ object LibraryRepository {
             }
         } else clearCoverCache()
         LibrarySnapshot.invalidate()
-        return ScanReport(archiveCount = uris.size, importedCount = built.size, warnings = warnings)
+        val report = ScanReport(archiveCount = uris.size, importedCount = built.size, warnings = warnings)
+        mutableScanProgress.value = LibraryScanProgress(
+            phase = LibraryScanPhase.COMPLETED,
+            discoveredCount = uris.size,
+            processedCount = uris.size,
+            importedCount = built.size,
+            report = report,
+            completedAtMillis = System.currentTimeMillis(),
+        )
+        report
+        }
     }
 
     fun comics(): List<ComicEntry> = if (ExhibitionData.enabled) ExhibitionData.snapshot.comics else entries.map(::withUserTags)
