@@ -40,6 +40,8 @@ internal object TextDocument {
             .getOrElse { String(bytes, StandardCharsets.ISO_8859_1) }
     }
 
+    fun isChapterHeading(line: String): Boolean = CHAPTER_HEAD.matches(line)
+
     fun splitChapters(text: String): List<TextChapter> {
         val lines = text.lineSequence().toList()
         val headings = lines.withIndex().filter { (_, line) -> CHAPTER_HEAD.matches(line) }

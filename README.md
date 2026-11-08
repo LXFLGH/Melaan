@@ -1,7 +1,7 @@
 <div align="center">
   <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" width="96" alt="Melaan 图标" />
   <h1>Melaan</h1>
-  <p>Android 本地漫画阅读器 · Local comics, read your way.</p>
+  <p>Android 本地漫画与电子书阅读器 · Local comics and ebooks, read offline.</p>
   <p>
     <a href="https://github.com/LXFLGH/Melaan/releases/tag/lastRelease"><img src="https://img.shields.io/github/v/release/LXFLGH/Melaan?label=lastRelease" alt="Latest release" /></a>
     <img src="https://img.shields.io/badge/Android-12%2B-3DDC84?logo=android&logoColor=white" alt="Android 12 or newer" />
@@ -9,9 +9,9 @@
   </p>
 </div>
 
-Melaan 是一款面向 **本地漫画收藏** 的 Android 阅读器。选择设备上的漫画目录，扫描归档、整理书架，然后离线阅读；漫画内容由你自行提供，应用不内置在线漫画源。
+Melaan 是一款面向 **本地漫画与电子书收藏** 的 Android 阅读器。选择设备上的目录，扫描归档与 EPUB/PDF/TXT 文档、整理书架，然后离线阅读；书籍内容由你自行提供，应用不内置在线书源。
 
-[下载当前 APK](https://raw.githubusercontent.com/LXFLGH/Melaan/main/artifacts/Melaan-debug.apk) · [查看 Releases](https://github.com/LXFLGH/Melaan/releases/tag/lastRelease) · [查看源码](https://github.com/LXFLGH/Melaan) · [反馈问题](https://github.com/LXFLGH/Melaan/issues)
+[下载仓库现有 Debug APK（可能落后于源码）](https://raw.githubusercontent.com/LXFLGH/Melaan/main/artifacts/Melaan-debug.apk) · [查看 Releases](https://github.com/LXFLGH/Melaan/releases/tag/lastRelease) · [查看源码](https://github.com/LXFLGH/Melaan) · [反馈问题](https://github.com/LXFLGH/Melaan/issues)
 
 ## 应用截图
 
@@ -28,10 +28,23 @@ Melaan 是一款面向 **本地漫画收藏** 的 Android 阅读器。选择设�
 - 横屏对开阅读、图片适配、书签、阅读进度恢复和章节自动衔接。
 - 全局阅读偏好可由单本漫画覆盖。
 
+### 电子书（1.1.0 源码功能，待完整实机验证）
+
+- EPUB 读取 OPF 元数据和 spine 章节，用 WebView 渲染本地 XHTML/CSS/图片。
+- PDF 使用系统 PdfRenderer 按页显示；TXT 支持 UTF-8/GB18030 等编码及中文章节识别。
+- EPUB/TXT 默认支持跨章节无缝连续滚动与相邻章节预加载，可在阅读设置关闭；支持字号、行距、边距、夜间背景、全文搜索和命名书签。
+- EPUB 2 NCX 与 EPUB 3 nav 目录标题解析；受限 WebView 加载原始 CSS/图片资源。
+- PDF 支持双指缩放、平移、适宽、横屏双页与缩略图跳页；Android 15+ 支持对含文字层的 PDF 搜索。
+- 文档阅读位置保存与恢复；复杂 EPUB 和超大文件仍需进一步实机兼容性、内存与安全测试。
+
 ### 书架
 
-- 通过 Android 系统文件选择器授权一个或多个目录，递归扫描本地漫画。
+- 通过 Android 系统文件选择器授权一个或多个目录，递归扫描本地漫画和电子书。
 - 收藏、用户书单、最近阅读历史、标签筛选和批量标签整理。
+- 本地自定义标题、作者、系列（不改原文件）；按最近阅读、作者、系列、文件格式排序。
+- 授权的 SAF 文件若大小与修改时间均未变化，重新扫描可复用旧章节索引。
+- 移动文件后可从书架选择「重新关联移动或丢失的书籍」，手动将旧阅读记录、书签、标签、书单和元数据关联到新路径。
+- 本地备份也包含电子书排版偏好和自定义书籍元数据，旧版备份仍可兼容导入。
 - 重复条目可检查后移除书架记录；不会删除归档原文件。
 - R18 封面屏蔽开关可将所有漫画封面统一替换为灰色；它只遮住封面，不隐藏标题或漫画正文。
 - 支持导出与合并恢复本地阅读和书架数据。
@@ -41,6 +54,7 @@ Melaan 是一款面向 **本地漫画收藏** 的 Android 阅读器。选择设�
 | 类型 | 支持范围 |
 | --- | --- |
 | 外层归档 | `.7z`、`.zip`、`.cbz`、`.rar`、`.cbr` |
+| 本地电子书 | `.epub`、`.pdf`、`.txt`（1.1.0 源码，待实机回归） |
 | 嵌套章节 | ZIP/CBZ 外层归档中的一层 ZIP/CBZ 章节归档 |
 | 漫画页面 | JPEG、PNG、WebP、BMP、AVIF（Android 12 及以上） |
 
@@ -52,7 +66,7 @@ Melaan 是一款面向 **本地漫画收藏** 的 Android 阅读器。选择设�
 2. 打开应用，进入 **我的 → 扫描管理**，选择漫画库目录并授予读取权限。
 3. 返回书架或首页打开作品；阅读进度和书签会由应用本地保存。
 
-> `lastRelease` 当前提供的是 Debug 构建（versionName `1.0.12`，versionCode `13`），并非 Play 商店签名版本。
+> 已提交源码版本为 `1.1.0`（versionCode `14`）。仓库已发布的 Debug APK/lastRelease 仍需核对及重新构建，不能仅凭文件名判断它已包含电子书功能。
 
 ## 从源码构建
 

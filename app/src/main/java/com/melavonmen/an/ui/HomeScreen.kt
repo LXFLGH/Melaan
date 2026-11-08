@@ -50,6 +50,9 @@ import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ReadingProgress
 import com.melavonmen.an.data.chapterNoun
+import com.melavonmen.an.data.DocumentProgress
+import com.melavonmen.an.data.MediaKind
+import com.melavonmen.an.data.mediaKind
 import com.melavonmen.an.data.TagAliasStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -303,8 +306,18 @@ private fun HomeHeader(all: List<ComicEntry>) {
 @Composable
 private fun ResumeCard(entry: ComicEntry, progress: ReadingProgress, onRead: (String) -> Unit) {
     val chapterIndex = progress.chapterIndex.coerceIn(0, (entry.chapters.size - 1).coerceAtLeast(0))
-    val chapterName = chapterLabel(chapterIndex, entry.format)
+    val kind = mediaKind(entry.format)
+    val chapterName = if (kind == MediaKind.PDF) "第${progress.pageIndex + 1}页" else chapterLabel(chapterIndex, entry.format)
     val remain = (entry.chapters.size - chapterIndex - 1).coerceAtLeast(0)
+    val totalPages = entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1
+    val subtitle = if (kind == MediaKind.PDF) "上次阅读 PDF · 共 ${totalPages} 页"
+        else "上次阅读 $chapterName · 剩 $remain ${chapterNoun(entry.format)}"
+    val positionText = when (kind) {
+        MediaKind.PDF -> "读至第 ${progress.pageIndex + 1} 页 · 自动保存位置"
+        MediaKind.EPUB, MediaKind.TXT -> "章内进度 ${progress.pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS) / 100}% · 自动保存位置"
+        MediaKind.COMIC -> "读至第 ${progress.pageIndex + 1} 页 · 自动保存书签"
+    }
+    val totalText = if (kind == MediaKind.PDF) "全 $totalPages 页" else "全 ${entry.chapters.size} ${chapterNoun(entry.format)}"
     val percent = progress.percent.coerceIn(0, 100)
     val frac = (percent / 100f).coerceIn(0f, 1f)
 
@@ -353,14 +366,14 @@ private fun ResumeCard(entry: ComicEntry, progress: ReadingProgress, onRead: (St
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "上次阅读 $chapterName · 剩 $remain 话",
+                    subtitle,
                     fontSize = 11.sp,
                     color = Sub,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    "读至第 ${progress.pageIndex + 1} 页 · 自动保存书签",
+                    positionText,
                     fontSize = 11.sp,
                     color = Sub,
                     maxLines = 1,
@@ -370,7 +383,7 @@ private fun ResumeCard(entry: ComicEntry, progress: ReadingProgress, onRead: (St
                 Bar(frac)
                 Spacer(Modifier.height(5.dp))
                 Row {
-                    Text("全 ${entry.chapters.size} 话", fontSize = 10.sp, color = Sub)
+                    Text(totalText, fontSize = 10.sp, color = Sub)
                     Spacer(Modifier.weight(1f))
                     Text(
                         "$percent%",

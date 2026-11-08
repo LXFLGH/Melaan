@@ -97,5 +97,85 @@ class EpubParserTest {
         }
     }
 
+    @Test
+    fun percentEncodedManifestHrefsResolveToZipEntryNames() {
+        val file = tmp.newFile("encoded.epub")
+        val container = """
+            <?xml version="1.0"?>
+            <container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+              <rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles>
+            </container>
+        """.trimIndent().toByteArray()
+        val opf = """
+            <?xml version="1.0"?>
+            <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+              <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Encoded</dc:title></metadata>
+              <manifest><item id="c1" href="text/My%20Chapter.xhtml" media-type="application/xhtml+xml"/></manifest>
+              <spine><itemref idref="c1"/></spine>
+            </package>
+        """.trimIndent().toByteArray()
+        ZipArchiveOutputStream(file).use { out ->
+            listOf(
+                "META-INF/container.xml" to container,
+                "OEBPS/content.opf" to opf,
+                "OEBPS/text/My Chapter.xhtml" to "<html><body>text</body></html>".toByteArray(),
+            ).forEach { (name, bytes) ->
+                out.putArchiveEntry(ZipArchiveEntry(name))
+                out.write(bytes)
+                out.closeArchiveEntry()
+            }
+        }
+        open(file).use { reader ->
+            val parsed = EpubParser.parse(reader)
+            assertNotNull(parsed)
+            assertEquals("OEBPS/text/My Chapter.xhtml", parsed!!.chapters.single().pageEntryPaths.single())
+            assertEquals("My Chapter", parsed.chapters.single().name)
+            assertEquals("<html><body>text</body></html>", String(reader.readEntryBytes(parsed.chapters.single().pageEntryPaths.single())))
+        }
+    }
+
+    @Test
+    fun epub3NavProvidesHumanReadableChapterLabels() {
+        val file = tmp.newFile("nav-toc.epub")
+        val container = """<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OPS/book.opf"/></rootfiles></container>""".toByteArray()
+        val opf = """
+            <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+              <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>目录测试</dc:title></metadata>
+              <manifest>
+                <item id="toc" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+                <item id="one" href="text/ch1.xhtml" media-type="application/xhtml+xml"/>
+                <item id="two" href="text/ch2.xhtml" media-type="application/xhtml+xml"/>
+              </manifest>
+              <spine><itemref idref="one"/><itemref idref="two"/></spine>
+            </package>
+        """.trimIndent().toByteArray()
+        val nav = """
+          <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+            <body><nav epub:type="toc"><ol>
+              <li><a href="text/ch1.xhtml">序幕</a></li>
+              <li><a href="text/ch2.xhtml#start">第二章·旅行</a></li>
+            </ol></nav></body>
+          </html>
+        """.trimIndent().toByteArray()
+        ZipArchiveOutputStream(file).use { out ->
+            listOf(
+                "META-INF/container.xml" to container,
+                "OPS/book.opf" to opf,
+                "OPS/nav.xhtml" to nav,
+                "OPS/text/ch1.xhtml" to "<html/>".toByteArray(),
+                "OPS/text/ch2.xhtml" to "<html/>".toByteArray(),
+            ).forEach { (name, bytes) ->
+                out.putArchiveEntry(ZipArchiveEntry(name))
+                out.write(bytes)
+                out.closeArchiveEntry()
+            }
+        }
+        open(file).use { reader ->
+            val info = EpubParser.parse(reader)
+            assertNotNull(info)
+            assertEquals(listOf("序幕", "第二章·旅行"), info!!.chapters.map { it.name })
+        }
+    }
+
     private fun String.toByteArray(): ByteArray = toByteArray(Charsets.UTF_8)
 }

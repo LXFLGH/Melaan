@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
+import com.melavonmen.an.data.UserBookMetadataStore
 import com.melavonmen.an.data.LibraryCollectionsStore
 import com.melavonmen.an.data.LibraryMaintenance
 import com.melavonmen.an.data.LibrarySnapshot
@@ -71,6 +72,7 @@ import com.melavonmen.an.data.TagCatalog
 import com.melavonmen.an.data.chapterNoun
 import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.mediaKind
+import com.melavonmen.an.data.DocumentProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -103,6 +105,9 @@ private enum class Segment(val label: String, val status: String?) {
 private enum class SortMode(val label: String) {
     RECENT("最近阅读"),
     TITLE("标题"),
+    AUTHOR("作者"),
+    SERIES("系列"),
+    FORMAT("文件格式"),
     SIZE("大小"),
     PROGRESS("进度")
 }
@@ -171,6 +176,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
     var listName by remember { mutableStateOf("") }
     var duplicateCandidates by remember { mutableStateOf(emptyList<com.melavonmen.an.data.DuplicateGroup>()) }
     var duplicateDialog by remember { mutableStateOf(false) }
+    var showLostFiles by remember { mutableStateOf(false) }
     var removingDuplicate by remember { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
@@ -207,10 +213,14 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
             .filter { activeBookList == null || bookLists.firstOrNull { list -> list.name == activeBookList }?.comicIds?.contains(it.id) == true }
             .filter { selectedKind == null || mediaKind(it.format) == selectedKind }
     }
-    val display = remember(filtered, sortMode, progressById) {
+    val display = remember(filtered, sortMode, progressById, history) {
+        val recentlyRead = history.associate { it.progress.comicId to it.timestampMillis }
         when (sortMode) {
-            SortMode.RECENT -> filtered
+            SortMode.RECENT -> filtered.sortedWith(compareByDescending<ComicEntry> { recentlyRead[it.id] ?: 0L }.thenBy { it.title.lowercase() })
             SortMode.TITLE -> filtered.sortedBy { it.title.lowercase() }
+            SortMode.AUTHOR -> filtered.sortedBy { it.authors.firstOrNull()?.lowercase() ?: "\\uffff" }
+            SortMode.SERIES -> filtered.sortedWith(compareBy<ComicEntry> { UserBookMetadataStore.load(it.id).series.ifBlank { "\\uffff" }.lowercase() }.thenBy { it.title.lowercase() })
+            SortMode.FORMAT -> filtered.sortedWith(compareBy<ComicEntry> { it.format }.thenBy { it.title.lowercase() })
             SortMode.SIZE -> filtered.sortedByDescending { it.sizeBytes }
             SortMode.PROGRESS -> filtered.sortedByDescending { progressById[it.id]?.percent ?: -1 }
         }
@@ -251,6 +261,9 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 duplicateCandidates = LibraryMaintenance.duplicateGroups(comics)
                 duplicateDialog = true
             }.padding(bottom = 4.dp))
+            Text("重新关联移动或丢失的书籍", color = Accent, modifier = Modifier.clickable {
+                showLostFiles = true
+            }.padding(vertical = 4.dp))
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -290,7 +303,12 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
                 if (entry != null) Column(
                     Modifier.fillMaxWidth().clickable { onOpenComic(progress.comicId) }.padding(vertical = 8.dp)
                 ) {
-                    Text(stringResource(R.string.library_history_entry, entry.title, progress.chapterIndex + 1, progress.pageIndex + 1), color = Ink)
+                    val location = when (mediaKind(entry.format)) {
+                        MediaKind.PDF -> "第 ${progress.pageIndex + 1} 页"
+                        MediaKind.EPUB, MediaKind.TXT -> "第 ${progress.chapterIndex + 1} 章 · 章内 ${progress.pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS) / 100}%"
+                        MediaKind.COMIC -> "第 ${progress.chapterIndex + 1} 话 · 第 ${progress.pageIndex + 1} 页"
+                    }
+                    Text("${entry.title} · $location", color = Ink)
                     Text(stringResource(R.string.library_history_timestamp, DateFormat.getDateTimeInstance().format(Date(item.timestampMillis))), color = SubText, fontSize = 11.sp)
                 }
             }
@@ -495,6 +513,7 @@ fun LibraryScreen(onOpenComic: (String) -> Unit) {
             }
         }
     }
+    if (showLostFiles) LostBooksDialog(entries = comics, onDismiss = { showLostFiles = false })
     if (createListDialog) AlertDialog(
         onDismissRequest = { createListDialog = false },
         title = { Text(stringResource(R.string.library_create_booklist)) },
@@ -589,7 +608,8 @@ private fun ComicCard(
         "未开始 · ${formatSize(entry.sizeBytes)}"
     } else {
         val ch = entry.chapters.size.coerceAtLeast(1)
-        "第${progress.chapterIndex + 1}/${ch}${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}"
+        if (mediaKind(entry.format) == MediaKind.PDF) "第${progress.pageIndex + 1}/${entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1}页 · ${formatSize(entry.sizeBytes)}"
+        else "第${progress.chapterIndex + 1}/${ch}${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)}"
     }
 
     GlassSurface(

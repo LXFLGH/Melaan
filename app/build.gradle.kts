@@ -3,16 +3,20 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// CI can compile against a publicly available SDK without changing the normal API 37 build.
+// This override is for compile checks only; release builds must use the default.
+val compileSdkOverride = providers.gradleProperty("melaanCompileSdk").orNull?.toIntOrNull()
+
 android {
     namespace = "com.melavonmen.an"
     compileSdk {
-        version = release(37)
+        version = release(compileSdkOverride ?: 37)
     }
 
     defaultConfig {
         applicationId = "com.melavonmen.an"
         minSdk = 31
-        targetSdk = 37
+        targetSdk = compileSdkOverride ?: 37
         versionCode = 14
         versionName = "1.1.0"
 

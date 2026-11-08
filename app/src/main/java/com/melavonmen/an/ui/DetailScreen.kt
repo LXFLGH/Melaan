@@ -6,6 +6,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -65,7 +66,12 @@ import androidx.compose.material.icons.filled.Delete
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.ProgressStore
+import com.melavonmen.an.data.UserBookMetadata
+import com.melavonmen.an.data.UserBookMetadataStore
 import com.melavonmen.an.data.chapterNoun
+import com.melavonmen.an.data.DocumentProgress
+import com.melavonmen.an.data.MediaKind
+import com.melavonmen.an.data.mediaKind
 import com.melavonmen.an.data.ReadingProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -92,7 +98,12 @@ fun DetailScreen(
     onRead: (String, Int, Int) -> Unit,
     onDelete: (String, Boolean) -> Unit
 ) {
-    val cachedEntry = remember(comicId) { LibraryRepository.byId(comicId) }
+    var metadataVersion by remember(comicId) { androidx.compose.runtime.mutableIntStateOf(0) }
+    val cachedEntry = remember(comicId, metadataVersion) { LibraryRepository.byId(comicId) }
+    var showEditMetadata by remember(comicId) { mutableStateOf(false) }
+    var editTitle by remember(comicId) { mutableStateOf("") }
+    var editAuthors by remember(comicId) { mutableStateOf("") }
+    var editSeries by remember(comicId) { mutableStateOf("") }
     var authors by remember(comicId) { mutableStateOf<List<String>?>(null) }
     val progress = remember(comicId) { ProgressStore.load(comicId) }
     var reversed by remember(comicId) { mutableStateOf(false) }
@@ -115,6 +126,20 @@ fun DetailScreen(
     BoxWithConstraints(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.align(Alignment.TopCenter).widthIn(max = 920.dp).fillMaxSize()) {
             item { DetailHero(entry, onBack, onRequestDelete = { showDeleteDialog = true }) }
+            item {
+                Text(
+                    "编辑标题 / 作者 / 系列",
+                    modifier = Modifier.clickable {
+                        val overrides = UserBookMetadataStore.load(entry.id)
+                        editTitle = overrides.title.ifBlank { entry.title }
+                        editAuthors = overrides.authors.ifBlank { entry.authors.joinToString("、") }
+                        editSeries = overrides.series
+                        showEditMetadata = true
+                    }.padding(horizontal = 18.dp, vertical = 9.dp),
+                    color = Accent,
+                    fontSize = 12.sp,
+                )
+            }
             item { ActionRow(entry, progress, onRead) }
             item { ProgressBlock(entry, progress) }
             item {
@@ -133,6 +158,28 @@ fun DetailScreen(
             }
             item { Spacer(Modifier.height(28.dp)) }
         }
+    }
+    if (showEditMetadata) {
+        AlertDialog(
+            onDismissRequest = { showEditMetadata = false },
+            title = { Text("编辑本地书籍信息") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(value = editTitle, onValueChange = { editTitle = it }, label = { Text("标题") }, singleLine = true)
+                    OutlinedTextField(value = editAuthors, onValueChange = { editAuthors = it }, label = { Text("作者（用顿号分隔）") })
+                    OutlinedTextField(value = editSeries, onValueChange = { editSeries = it }, label = { Text("系列") }, singleLine = true)
+                    Text("仅修改 App 书架元数据，不修改原始文件。", fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    UserBookMetadataStore.save(entry.id, UserBookMetadata(editTitle, editAuthors, editSeries))
+                    metadataVersion++
+                    showEditMetadata = false
+                }, enabled = editTitle.isNotBlank()) { Text("保存") }
+            },
+            dismissButton = { TextButton(onClick = { showEditMetadata = false }) { Text("取消") } },
+        )
     }
     if (showDeleteDialog) {
         AlertDialog(
@@ -294,7 +341,9 @@ private fun DetailHero(entry: ComicEntry, onBack: () -> Unit, onRequestDelete: (
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "${entry.chapters.size} ${chapterNoun(entry.format)} · ${formatSize(entry.sizeBytes)} · ${entry.format.uppercase()}",
+                    (if (mediaKind(entry.format) == MediaKind.PDF) "${entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 0} 页"
+                     else "${entry.chapters.size} ${chapterNoun(entry.format)}") +
+                        " · ${formatSize(entry.sizeBytes)} · ${entry.format.uppercase()}",
                     fontSize = 10.5.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 16.sp
@@ -384,8 +433,13 @@ private fun ProgressBlock(entry: ComicEntry, progress: ReadingProgress?) {
             val percent = progress.percent.coerceIn(0, 100)
             Bar((percent / 100f).coerceIn(0f, 1f))
             Spacer(Modifier.height(10.dp))
+            val position = when (mediaKind(entry.format)) {
+                MediaKind.PDF -> "第 ${progress.pageIndex + 1} / ${entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1} 页"
+                MediaKind.EPUB, MediaKind.TXT -> "${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} 章 · 章内 ${progress.pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS) / 100}%"
+                MediaKind.COMIC -> "${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} ${chapterNoun(entry.format)} · 第 ${progress.pageIndex + 1} 页"
+            }
             Text(
-                "已读 $percent% · 读至${chapterLabel(progress.chapterIndex, entry.format)} / 共 ${entry.chapters.size} ${chapterNoun(entry.format)} · 第 ${progress.pageIndex + 1} 页",
+                "已读 $percent% · 读至$position",
                 fontSize = 11.5.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

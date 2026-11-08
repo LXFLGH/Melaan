@@ -1,17 +1,26 @@
 {
   "schema_version": "1.0",
   "id": "ui-reader",
-  "responsibilities": "通用阅读器：漫画页按需解码与嵌套章节解析；EPUB 用 WebView 保真渲染 spine 章节；PDF 用 PdfRenderer 按页渲染；TXT 用文本流分章滚动。支持章节/页定位、进度保存、书签、亮度和主题化阅读控件",
+  "responsibilities": "通用阅读器：漫画页按需解码与嵌套章节解析；EPUB 用 WebView 保真渲染 spine 章节；PDF 用 PdfRenderer 按页渲染；TXT 用文本流分章滚动。支持章节/页定位、进度保存、书签、亮度和主题化阅读控件；EPUB/TXT 虚拟化跨章节滚动及搜索、命名书签，PDF 缩放与文本层搜索",
   "source_paths": [
     "app/src/main/java/com/melavonmen/an/ui/ReaderScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/DocumentReaderScreen.kt",
     "app/src/main/java/com/melavonmen/an/ui/SettingsScreen.kt",
     "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt",
-    "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt"
+    "app/src/main/java/com/melavonmen/an/data/BookmarkStore.kt",
+    "app/src/main/java/com/melavonmen/an/data/DocumentProgress.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SeamlessTextReader.kt",
+    "app/src/main/java/com/melavonmen/an/ui/SeamlessEpubReader.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DocumentReaderOptions.kt",
+    "app/src/main/java/com/melavonmen/an/ui/DocumentReaderTools.kt",
+    "app/src/main/java/com/melavonmen/an/ui/PdfReaderExtras.kt",
+    "app/src/main/java/com/melavonmen/an/data/DocumentReaderPreferences.kt",
+    "app/src/main/java/com/melavonmen/an/data/DocumentSearch.kt",
+    "app/src/main/java/com/melavonmen/an/data/ReaderCore.kt"
   ],
   "entrypoints": [
     "ReaderScreen(comicId, chapterIndex, pageIndex, onExit)",
-    "DocumentReaderScreen(entry, chapterIndex, onExit)"
+    "DocumentReaderScreen(entry, chapterIndex, pageIndex, onExit)"
   ],
   "public_symbols": [
     "ReaderScreen",
@@ -19,7 +28,9 @@
     "ReaderSettingsStore.load",
     "ReaderSettingsStore.save",
     "ReaderSettingsStore.loadAutoNext/saveAutoNext",
-    "BookmarkStore.add/forComic/remove"
+    "BookmarkStore.add/forComic/remove",
+    "DocumentProgress.bookPercent/pdfPercent",
+    "ReaderCore.restore/persist"
   ],
   "data_structures": [
     {
@@ -27,6 +38,12 @@
       "fields": "scrollMode:Boolean?,rtl:Boolean?,fitWidth:Boolean?,doublePage:Boolean?",
       "source_evidence": "app/src/main/java/com/melavonmen/an/data/ReaderSettingsStore.kt",
       "note": "null 表示继承全局设置"
+    },
+    {
+      "name": "DocumentProgress",
+      "fields": "PDF:pageIndex=页面序号；EPUB/TXT:pageIndex=章内滚动基点(0..10000)；percent=全书进度",
+      "source_evidence": "app/src/main/java/com/melavonmen/an/data/DocumentProgress.kt",
+      "note": "保留原 ReadingProgress 四字段 JSON；不回写原始文件"
     }
   ],
   "dependencies": [

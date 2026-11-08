@@ -1,5 +1,6 @@
 package com.melavonmen.an.ui
 
+import android.content.res.Configuration
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
@@ -11,6 +12,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +32,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
@@ -39,28 +42,39 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.viewinterop.AndroidView
 import com.melavonmen.an.data.ChapterRef
+import com.melavonmen.an.data.DocumentProgress
+import com.melavonmen.an.data.DocumentReaderPreferences
+import com.melavonmen.an.data.DocumentReaderPreferencesStore
 import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibraryCollectionsStore
@@ -69,33 +83,63 @@ import com.melavonmen.an.data.PdfDocumentSession
 import com.melavonmen.an.data.PdfPages
 import com.melavonmen.an.data.ProgressStore
 import com.melavonmen.an.data.ReadingProgress
+import com.melavonmen.an.data.ReaderCore
 import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.isPdfFormat
 import com.melavonmen.an.data.mediaKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
+@OptIn(FlowPreview::class)
 @Composable
 fun DocumentReaderScreen(
     entry: ComicEntry,
     chapterIndex: Int,
+    pageIndex: Int,
     onExit: () -> Unit,
 ) {
     require(isDocumentFormat(entry.format)) { "unsupported document format: ${entry.format}" }
     val context = LocalContext.current
     val collections = remember(context) { LibraryCollectionsStore(context) }
+    var preferences by remember(entry.id) { mutableStateOf(DocumentReaderPreferencesStore.load(context)) }
+    var showOptions by remember(entry.id) { mutableStateOf(false) }
+    var controlsVisible by remember(entry.id) { mutableStateOf(true) }
+    var showSearch by remember(entry.id) { mutableStateOf(false) }
+    var showBookmarks by remember(entry.id) { mutableStateOf(false) }
+    var seekToken by remember(entry.id) { mutableIntStateOf(0) }
+    var requestedUnits by remember(entry.id) { mutableIntStateOf(pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS)) }
     val chapterCount = entry.chapters.size.coerceAtLeast(1)
     var chapter by remember(entry.id) {
         mutableIntStateOf(chapterIndex.coerceIn(0, chapterCount - 1))
     }
-    var page by remember(entry.id, chapter) { mutableIntStateOf(0) }
-    var scrollPercent by remember(entry.id, chapter) { mutableIntStateOf(0) }
+    val isPdf = isPdfFormat(entry.format)
+    // EPUB/TXT use pageIndex as chapter scroll position (0..10_000); PDF uses a page number.
+    var page by remember(entry.id) { mutableIntStateOf(if (isPdf) pageIndex.coerceAtLeast(0) else 0) }
+    var scrollUnits by remember(entry.id) {
+        mutableIntStateOf(if (isPdf) 0 else pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS))
+    }
+    var restoreScrollUnits by remember(entry.id) {
+        mutableIntStateOf(if (isPdf) 0 else pageIndex.coerceIn(0, DocumentProgress.SCROLL_UNITS))
+    }
     val latestChapter by rememberUpdatedState(chapter)
     val latestPage by rememberUpdatedState(page)
-    val latestPercent by rememberUpdatedState(scrollPercent)
+    val latestScroll by rememberUpdatedState(scrollUnits)
+    fun seekChapter(target: Int, units: Int = 0) {
+        chapter = target.coerceIn(0, chapterCount - 1)
+        page = if (isPdf) units.coerceAtLeast(0) else 0
+        scrollUnits = if (isPdf) 0 else units.coerceIn(0, DocumentProgress.SCROLL_UNITS)
+        restoreScrollUnits = scrollUnits
+        requestedUnits = scrollUnits
+        seekToken++
+    }
 
     val saveProgress = {
         val total = when (mediaKind(entry.format)) {
@@ -103,12 +147,11 @@ fun DocumentReaderScreen(
             else -> chapterCount
         }
         val percent = when (mediaKind(entry.format)) {
-            MediaKind.PDF -> if (total > 0) ((latestPage + 1) * 100) / total else 0
-            else -> latestPercent
+            MediaKind.PDF -> DocumentProgress.pdfPercent(latestPage, total)
+            else -> DocumentProgress.bookPercent(latestChapter, chapterCount, latestScroll)
         }
-        val progress = ReadingProgress(entry.id, latestChapter, latestPage, percent.coerceIn(0, 100))
-        runCatching { ProgressStore.save(progress) }
-        runCatching { collections.recordProgress(progress) }
+        val position = if (isPdf) latestPage else latestScroll
+        runCatching { ReaderCore.persist(entry.id, latestChapter, position, percent, collections) }
     }
     val exit = {
         saveProgress()
@@ -118,53 +161,146 @@ fun DocumentReaderScreen(
     androidx.compose.runtime.DisposableEffect(entry.id) {
         onDispose { saveProgress() }
     }
+    // Persist debounced updates as well as exit: an OS process kill need not trigger onDispose.
+    LaunchedEffect(entry.id) {
+        snapshotFlow { Triple(chapter, page, scrollUnits) }
+            .drop(1)
+            .debounce(800L)
+            .collect { saveProgress() }
+    }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        ReaderTopBar(
-            title = entry.title,
-            subtitle = chapterSubtitle(entry, chapter),
-            onBack = exit,
-        )
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+    val formatKind = mediaKind(entry.format)
+    val onReaderTap: () -> Unit = { controlsVisible = !controlsVisible }
+    // WebView reports touch via its native touch listener; Compose handles TXT/PDF taps.
+    val readingSurface = if (formatKind == MediaKind.EPUB) Modifier.fillMaxSize()
+    else Modifier.fillMaxSize().pointerInput(entry.id) {
+        detectTapGestures(onTap = { onReaderTap() })
+    }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(readingSurface) {
             when (mediaKind(entry.format)) {
                 MediaKind.PDF -> PdfContent(
                     entry = entry,
                     page = page,
                     onPageChange = { page = it },
-                    onProgressChange = { scrollPercent = it },
+                    preferences = preferences,
                 )
-                MediaKind.EPUB -> EpubContent(
+                MediaKind.EPUB -> if (preferences.seamless) {
+                    SeamlessEpubReader(
+                        entry = entry,
+                        initialChapter = chapterIndex,
+                        initialUnits = pageIndex,
+                        requestedChapter = chapter,
+                        requestedUnits = requestedUnits,
+                        seekToken = seekToken,
+                        preferences = preferences,
+                        onPositionChange = { current, units ->
+                            chapter = current
+                            scrollUnits = units
+                        },
+                        onLinkChapter = { seekChapter(it) },
+                        onReaderTap = onReaderTap,
+                    )
+                } else EpubContent(
                     entry = entry,
                     chapter = chapter,
-                    onProgressChange = { scrollPercent = it },
+                    restoreScrollUnits = restoreScrollUnits,
+                    preferences = preferences,
+                    onChapterChange = { seekChapter(it) },
+                    onProgressChange = { scrollUnits = it },
+                    onReaderTap = onReaderTap,
                 )
-                MediaKind.TXT -> TextContent(
+                MediaKind.TXT -> if (preferences.seamless) {
+                    SeamlessTextReader(
+                        entry = entry,
+                        initialChapter = chapterIndex,
+                        initialUnits = pageIndex,
+                        requestedChapter = chapter,
+                        requestedUnits = requestedUnits,
+                        seekToken = seekToken,
+                        preferences = preferences,
+                        onPositionChange = { current, units ->
+                            chapter = current
+                            scrollUnits = units
+                        },
+                    )
+                } else TextContent(
                     entry = entry,
                     chapter = chapter,
-                    onProgressChange = { scrollPercent = it },
+                    restoreScrollUnits = restoreScrollUnits,
+                    preferences = preferences,
+                    onProgressChange = { scrollUnits = it },
                 )
                 else -> DocumentError("这不是电子书文件")
             }
         }
+        if (controlsVisible) {
+            Box(
+                Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+            ) {
+        ReaderTopBar(
+            title = entry.title,
+            subtitle = if (isPdf) "PDF · 第 ${page + 1} 页" else chapterSubtitle(entry, chapter),
+            onBack = exit,
+            onOptions = { showOptions = true },
+            onSearch = { showSearch = true },
+            onBookmarks = { showBookmarks = true },
+            document = !isPdf,
+        )
+            }
+            Box(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
+            ) {
         ReaderBottomBar(
             format = entry.format,
             chapter = chapter,
             chapterCount = chapterCount,
             pdfPageCount = entry.chapters.firstOrNull()?.pageEntryPaths?.size ?: 1,
+            pdfDoublePage = isPdf && preferences.pdfTwoPage && LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE,
             page = page,
-            onChapterChange = { value ->
-                chapter = value
-                page = 0
-                scrollPercent = 0
-            },
+            onChapterChange = { seekChapter(it) },
             onPageChange = { page = it },
             onExit = exit,
         )
+            }
+        }
     }
+    if (showOptions) DocumentReaderOptions(
+        current = preferences,
+        isPdf = isPdf,
+        onChange = { value ->
+            preferences = value
+            DocumentReaderPreferencesStore.save(context, value)
+        },
+        onDismiss = { showOptions = false },
+    )
+    if (showSearch && !isPdf) DocumentSearchDialog(
+        entry = entry,
+        onJump = { selected, units -> seekChapter(selected, units) },
+        onDismiss = { showSearch = false },
+    )
+    if (showBookmarks) DocumentBookmarksDialog(
+        entry = entry,
+        currentChapter = chapter,
+        currentPosition = if (isPdf) page else scrollUnits,
+        onJump = { selected, position -> seekChapter(selected, position) },
+        onDismiss = { showBookmarks = false },
+    )
 }
 
 @Composable
-private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit) {
+private fun ReaderTopBar(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit,
+    onOptions: () -> Unit,
+    onSearch: () -> Unit,
+    onBookmarks: () -> Unit,
+    document: Boolean,
+) {
     Row(
         Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -198,6 +334,9 @@ private fun ReaderTopBar(title: String, subtitle: String, onBack: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        if (document) TextButton(onClick = onSearch) { Text("查找") }
+        TextButton(onClick = onBookmarks) { Text("书签") }
+        TextButton(onClick = onOptions) { Text("Aa") }
     }
 }
 
@@ -207,6 +346,7 @@ private fun ReaderBottomBar(
     chapter: Int,
     chapterCount: Int,
     pdfPageCount: Int,
+    pdfDoublePage: Boolean,
     page: Int,
     onChapterChange: (Int) -> Unit,
     onPageChange: (Int) -> Unit,
@@ -215,6 +355,10 @@ private fun ReaderBottomBar(
     val isPdf = isPdfFormat(format)
     val position = if (isPdf) page else chapter
     val count = if (isPdf) pdfPageCount.coerceAtLeast(1) else chapterCount
+    val spreadStart = if (isPdf && pdfDoublePage && page > 0) 1 + ((page - 1) / 2) * 2 else page
+    val pdfPrevious = if (!pdfDoublePage) (page - 1).coerceAtLeast(0)
+        else if (spreadStart <= 1) 0 else spreadStart - 2
+    val pdfNext = if (!pdfDoublePage) page + 1 else if (spreadStart == 0) 1 else spreadStart + 2
     Column(
         Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 8.dp),
     ) {
@@ -229,7 +373,7 @@ private fun ReaderBottomBar(
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             DocumentNavButton(Icons.AutoMirrored.Filled.NavigateBefore, "上一${if (isPdf) "页" else "章"}", position > 0) {
-                if (isPdf) onPageChange(position - 1) else onChapterChange(chapter - 1)
+                if (isPdf) onPageChange(pdfPrevious) else onChapterChange(chapter - 1)
             }
             Text(
                 if (isPdf) "第 ${position + 1} / $count 页" else "第 ${position + 1} / $count 章",
@@ -238,8 +382,8 @@ private fun ReaderBottomBar(
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            DocumentNavButton(Icons.AutoMirrored.Filled.NavigateNext, "下一${if (isPdf) "页" else "章"}", position < count - 1) {
-                if (isPdf) onPageChange(position + 1) else onChapterChange(chapter + 1)
+            DocumentNavButton(Icons.AutoMirrored.Filled.NavigateNext, "下一${if (isPdf) "页" else "章"}", if (isPdf) pdfNext < count else position < count - 1) {
+                if (isPdf) onPageChange(pdfNext) else onChapterChange(chapter + 1)
             }
         }
     }
@@ -274,44 +418,91 @@ private fun PdfContent(
     entry: ComicEntry,
     page: Int,
     onPageChange: (Int) -> Unit,
-    onProgressChange: (Int) -> Unit,
+    preferences: DocumentReaderPreferences,
 ) {
-    val sessionState = remember(entry.id) { mutableStateOf<Result<PdfDocumentSession>?>(null) }
-    LaunchedEffect(entry.id) {
-        sessionState.value = runCatching {
-            withContext(Dispatchers.IO) { LibraryRepository.openPdfSession(entry.id) }
-        }
+    var retry by remember(entry.id) { mutableIntStateOf(0) }
+    val sessionResult by produceState<Result<PdfDocumentSession>?>(initialValue = null, entry.id, retry) {
+        value = runCatching { withContext(Dispatchers.IO) { LibraryRepository.openPdfSession(entry.id) } }
     }
-    val result = sessionState.value
-    val session = result?.getOrNull()
+    val session = sessionResult?.getOrNull()
     androidx.compose.runtime.DisposableEffect(session) {
         onDispose { session?.close() }
     }
-
     when {
-        result == null -> DocumentLoading()
-        result.isFailure -> DocumentError(result.exceptionOrNull()?.message.orEmpty().ifBlank { "无法打开 PDF" })
-        session == null -> DocumentLoading()
+        sessionResult == null -> DocumentLoading()
+        sessionResult!!.isFailure -> DocumentError(
+            sessionResult!!.exceptionOrNull()?.message ?: "无法打开 PDF",
+            onRetry = { retry++ },
+        )
+        session == null -> DocumentError("无法打开 PDF", onRetry = { retry++ })
         else -> {
-            val pageCount = session.pageCount
-            LaunchedEffect(pageCount) {
-                if (page >= pageCount) onPageChange((pageCount - 1).coerceAtLeast(0))
-            }
-            val bitmap by produceState<Bitmap?>(initialValue = null, session, page) {
-                value = withContext(Dispatchers.IO) {
-                    runCatching { PdfPages.renderPage(session, page, targetWidth = 1080) }.getOrNull()
+            val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val doublePage = preferences.pdfTwoPage && landscape && page > 0
+            val spreadStart = if (doublePage) 1 + ((page - 1) / 2) * 2 else page
+            val indices = if (doublePage && spreadStart + 1 < session.pageCount) {
+                listOf(spreadStart, spreadStart + 1)
+            } else listOf(spreadStart)
+            LaunchedEffect(session.pageCount, page) {
+                if (page !in 0 until session.pageCount) {
+                    onPageChange(page.coerceIn(0, (session.pageCount - 1).coerceAtLeast(0)))
                 }
             }
-            val image = bitmap
-            if (image != null) {
-                Image(
-                    bitmap = image.asImageBitmap(),
-                    contentDescription = "PDF 第 ${page + 1} 页",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit,
-                )
-            } else {
-                DocumentLoading()
+            val bitmapsResult by produceState<Result<List<Bitmap>>?>(
+                initialValue = null, session, indices, preferences.pdfFitWidth,
+            ) {
+                value = runCatching {
+                    withContext(Dispatchers.IO) {
+                        indices.map { index ->
+                            PdfPages.renderPage(session, index, targetWidth = if (doublePage) 760 else if (preferences.pdfFitWidth) 1440 else 1080)
+                                ?: error("无法渲染 PDF 第 ${index + 1} 页")
+                        }
+                    }
+                }
+            }
+            val pages = bitmapsResult?.getOrNull()
+            androidx.compose.runtime.DisposableEffect(pages) {
+                onDispose { pages?.forEach(Bitmap::recycle) }
+            }
+            var zoom by remember(session, spreadStart, doublePage) { mutableFloatStateOf(1f) }
+            var pan by remember(session, spreadStart, doublePage) { mutableStateOf(Offset.Zero) }
+            Column(Modifier.fillMaxSize()) {
+                PdfReaderExtras(session, onPageChange)
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    when {
+                        bitmapsResult == null -> DocumentLoading()
+                        bitmapsResult!!.isFailure -> DocumentError(
+                            bitmapsResult!!.exceptionOrNull()?.message ?: "PDF 渲染失败",
+                            onRetry = { retry++ },
+                        )
+                        pages != null -> Row(
+                            modifier = Modifier.fillMaxSize()
+                                .pointerInput(spreadStart, doublePage) {
+                                    detectTransformGestures { _, move, multiplier, _ ->
+                                        zoom = (zoom * multiplier).coerceIn(1f, 5f)
+                                        pan = if (zoom <= 1f) Offset.Zero else pan + move
+                                    }
+                                }
+                                .graphicsLayer {
+                                    scaleX = zoom
+                                    scaleY = zoom
+                                    translationX = pan.x
+                                    translationY = pan.y
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            pages.forEachIndexed { i, bitmap ->
+                                Image(
+                                    bitmap = bitmap.asImageBitmap(),
+                                    contentDescription = "PDF 第 ${indices[i] + 1} 页",
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    contentScale = if (preferences.pdfFitWidth) ContentScale.FillWidth else ContentScale.Fit,
+                                )
+                            }
+                        }
+                        else -> DocumentError("PDF 页面为空", onRetry = { retry++ })
+                    }
+                }
             }
         }
     }
@@ -322,19 +513,39 @@ private fun PdfContent(
 private fun EpubContent(
     entry: ComicEntry,
     chapter: Int,
+    restoreScrollUnits: Int,
+    preferences: DocumentReaderPreferences,
+    onChapterChange: (Int) -> Unit,
     onProgressChange: (Int) -> Unit,
+    onReaderTap: () -> Unit,
 ) {
     val context = LocalContext.current
+    val currentReaderTap = rememberUpdatedState(onReaderTap)
     val chapterPath = entry.chapters.getOrNull(chapter)?.pageEntryPaths?.firstOrNull().orEmpty()
-    val baseUrl = remember(chapterPath) { "https://melaan.epub/$chapterPath" }
-    val html by produceState<String?>(initialValue = null, entry.id, chapter) {
+    val baseUrl = remember(chapterPath) {
+        "https://melaan.epub/" + chapterPath.split('/').joinToString("/") { Uri.encode(it) }
+    }
+    var retry by remember(entry.id, chapter) { mutableIntStateOf(0) }
+    val htmlResult by produceState<Result<String>?>(initialValue = null, entry.id, chapter, retry) {
         value = runCatching {
             withContext(Dispatchers.IO) {
                 String(LibraryRepository.readEpubChapter(entry.id, chapter), Charsets.UTF_8)
             }
-        }.getOrNull()
+        }
     }
-    val webView = remember(context) {
+    when {
+        htmlResult == null -> {
+            DocumentLoading()
+            return
+        }
+        htmlResult!!.isFailure -> {
+            DocumentError(htmlResult!!.exceptionOrNull()?.message ?: "EPUB 章节读取失败", onRetry = { retry++ })
+            return
+        }
+    }
+    val html = htmlResult!!.getOrThrow()
+    val webView = remember(context, entry.id, chapter, retry) {
+        var pendingRestore = true
         WebView(context).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
             settings.javaScriptEnabled = false
@@ -345,19 +556,42 @@ private fun EpubContent(
             settings.loadWithOverviewMode = true
             settings.builtInZoomControls = true
             settings.displayZoomControls = false
+            val tapDetector = android.view.GestureDetector(context,
+                object : android.view.GestureDetector.SimpleOnGestureListener() {
+                    override fun onDown(event: android.view.MotionEvent): Boolean = true
+                    override fun onSingleTapConfirmed(event: android.view.MotionEvent): Boolean {
+                        currentReaderTap.value()
+                        return false
+                    }
+                },
+            )
+            // Observe taps but never consume WebView touches: links and vertical scrolling must work.
+            setOnTouchListener { _, event -> tapDetector.onTouchEvent(event); false }
+            settings.textZoom = (preferences.fontSizeSp * 100 / 18).coerceIn(70, 200)
+            setBackgroundColor(if (preferences.nightMode) AndroidColor.rgb(20, 23, 27) else AndroidColor.TRANSPARENT)
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                    // Allow in-book links; block everything outside the current archive.
-                    view.loadUrl(request.url.toString())
-                    return true
+                    // Only book-local navigation is allowed; never navigate to an external URL.
+                    val uri = request.url
+                    if (!isSafeEpubUri(uri)) return true
+                    if (request.isForMainFrame) {
+                        val targetPath = uri.path?.trimStart('/')
+                        val targetIndex = entry.chapters.indexOfFirst {
+                            it.pageEntryPaths.firstOrNull() == targetPath
+                        }
+                        if (targetIndex >= 0 && targetIndex != chapter) {
+                            onChapterChange(targetIndex)
+                            return true
+                        }
+                        // Unknown spine targets may not silently desynchronize the chapter index.
+                        if (targetIndex < 0 && targetPath != chapterPath) return true
+                    }
+                    return false
                 }
 
-                override fun shouldInterceptRequest(
-                    view: WebView,
-                    request: WebResourceRequest,
-                ): WebResourceResponse? {
+                override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     val url = request.url
-                    if (url.host != "melaan.epub") return emptyResponse()
+                    if (!isSafeEpubUri(url)) return emptyResponse()
                     val path = url.path?.trimStart('/') ?: return emptyResponse()
                     val bytes = runBlocking {
                         runCatching { LibraryRepository.readResourceBytes(entry.id, path) }.getOrNull()
@@ -366,66 +600,142 @@ private fun EpubContent(
                     val charset = if (mime.startsWith("text/") || mime == "application/xhtml+xml") "utf-8" else null
                     return WebResourceResponse(mime, charset, ByteArrayInputStream(bytes))
                 }
+
+                override fun onPageFinished(view: WebView, url: String?) {
+                    if (!pendingRestore) return
+                    view.post {
+                        if (!pendingRestore) return@post
+                        val scrollable = (view.contentHeight * view.scale - view.height).coerceAtLeast(0f)
+                        val fraction = restoreScrollUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)
+                        view.scrollTo(0, (scrollable * fraction / DocumentProgress.SCROLL_UNITS).toInt())
+                        pendingRestore = false
+                        onProgressChange(fraction)
+                    }
+                }
             }
             setOnScrollChangeListener { view, _, scrollY, _, _ ->
+                if (pendingRestore) return@setOnScrollChangeListener
                 val web = view as? WebView ?: return@setOnScrollChangeListener
-                val contentHeight = web.contentHeight * web.scale
-                val max = (contentHeight - web.height).coerceAtLeast(1f)
-                onProgressChange(((scrollY / max) * 100f).toInt().coerceIn(0, 100))
+                val scrollable = (web.contentHeight * web.scale - web.height).coerceAtLeast(1f)
+                onProgressChange(
+                    ((scrollY / scrollable) * DocumentProgress.SCROLL_UNITS)
+                        .toInt().coerceIn(0, DocumentProgress.SCROLL_UNITS)
+                )
             }
         }
     }
     androidx.compose.runtime.DisposableEffect(webView) {
-        onDispose { webView.destroy() }
-    }
-    LaunchedEffect(html, baseUrl) {
-        html?.let { value ->
-            webView.loadDataWithBaseURL(baseUrl, value, "application/xhtml+xml", "UTF-8", null)
+        onDispose {
+            webView.stopLoading()
+            webView.destroy()
         }
     }
-    val value = html
-    if (value == null) DocumentLoading() else AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+    LaunchedEffect(html, baseUrl, webView, preferences) {
+        val fore = if (preferences.nightMode) "#e9e1d5" else "#202127"
+        val back = if (preferences.nightMode) "#14171b" else "#ffffff"
+        val family = when (preferences.fontFamily) {
+            "serif" -> "serif"
+            "sans" -> "sans-serif"
+            "mono" -> "monospace"
+            else -> "inherit"
+        }
+        val style = "<style>body{color:$fore;background:$back;margin-left:${preferences.horizontalMarginDp}px;margin-right:${preferences.horizontalMarginDp}px;font-family:$family}p{margin-bottom:${preferences.paragraphSpacingDp}px}</style>"
+        val body = if (html.contains("</head>", ignoreCase = true)) {
+            html.replace(Regex("</head>", RegexOption.IGNORE_CASE), "$style</head>")
+        } else "$style$html"
+        webView.settings.textZoom = (preferences.fontSizeSp * 100 / 18).coerceIn(70, 200)
+        webView.loadDataWithBaseURL(baseUrl, body, "application/xhtml+xml", "UTF-8", null)
+    }
+    AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+}
+
+/** External URLs and path traversal must never reach a book's local resource loader. */
+internal fun isSafeEpubUri(uri: Uri): Boolean {
+    if (uri.scheme != "https" || uri.host != "melaan.epub") return false
+    val path = uri.path ?: return false
+    return path.startsWith("/") && path.split('/').none { it == ".." || it == "." || it.contains('\\') }
 }
 
 @Composable
 private fun TextContent(
     entry: ComicEntry,
     chapter: Int,
+    restoreScrollUnits: Int,
+    preferences: DocumentReaderPreferences,
     onProgressChange: (Int) -> Unit,
 ) {
-    val text by produceState<String?>(initialValue = null, entry.id, chapter) {
+    var retry by remember(entry.id, chapter) { mutableIntStateOf(0) }
+    val textResult by produceState<Result<String>?>(initialValue = null, entry.id, chapter, retry) {
         value = runCatching {
             withContext(Dispatchers.IO) { LibraryRepository.readTextChapter(entry.id, chapter) }
-        }.getOrNull()
-    }
-    val listState = rememberLazyListState()
-    val paragraphs = text.orEmpty().split(Regex("\\n\\s*\\n|\\r\\n\\s*\\r\\n"))
-        .map(String::trim)
-        .filter(String::isNotEmpty)
-        .ifEmpty { listOf(text.orEmpty()) }
-    LaunchedEffect(listState.isScrollInProgress, listState.firstVisibleItemIndex, paragraphs.size) {
-        if (paragraphs.isNotEmpty()) {
-            val percent = ((listState.firstVisibleItemIndex + 1) * 100) / paragraphs.size
-            onProgressChange(percent.coerceIn(0, 100))
         }
     }
-    if (text == null) {
-        DocumentLoading()
-    } else {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            itemsIndexed(paragraphs) { _, paragraph ->
-                Text(
-                    paragraph,
-                    fontSize = 18.sp,
-                    lineHeight = 30.sp,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
+    when {
+        textResult == null -> {
+            DocumentLoading()
+            return
+        }
+        textResult!!.isFailure -> {
+            DocumentError(textResult!!.exceptionOrNull()?.message ?: "TXT 章节读取失败", onRetry = { retry++ })
+            return
+        }
+    }
+    val text = textResult!!.getOrThrow()
+    val paragraphs = remember(text) {
+        text.split(Regex("\\n\\s*\\n|\\r\\n\\s*\\r\\n"))
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .ifEmpty { listOf(text) }
+    }
+    val listState = remember(entry.id, chapter, retry) { LazyListState() }
+    var restored by remember(entry.id, chapter, retry) { mutableStateOf(false) }
+
+    LaunchedEffect(listState, paragraphs) {
+        val units = restoreScrollUnits.coerceIn(0, DocumentProgress.SCROLL_UNITS)
+        val location = units.toFloat() / DocumentProgress.SCROLL_UNITS * paragraphs.size
+        val itemIndex = location.toInt().coerceIn(0, paragraphs.lastIndex)
+        listState.scrollToItem(itemIndex)
+        val size = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == itemIndex }?.size ?: 0
+        listState.scrollToItem(itemIndex, ((location - itemIndex) * size).toInt())
+        restored = true
+    }
+
+    LaunchedEffect(listState, paragraphs.size, restored) {
+        if (restored) {
+            snapshotFlow {
+                val visible = listState.layoutInfo.visibleItemsInfo.firstOrNull()
+                if (visible == null) 0
+                else if (!listState.canScrollForward) DocumentProgress.SCROLL_UNITS
+                else {
+                    val fraction = if (visible.size > 0) {
+                        listState.firstVisibleItemScrollOffset.toFloat() / visible.size
+                    } else 0f
+                    (((listState.firstVisibleItemIndex + fraction) / paragraphs.size) * DocumentProgress.SCROLL_UNITS)
+                        .toInt().coerceIn(0, DocumentProgress.SCROLL_UNITS)
+                }
+            }.distinctUntilChanged().collect { onProgressChange(it) }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize().background(if (preferences.nightMode) androidx.compose.ui.graphics.Color(0xFF14171B) else MaterialTheme.colorScheme.background),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = preferences.horizontalMarginDp.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        itemsIndexed(paragraphs) { _, paragraph ->
+            Text(
+                paragraph,
+                fontSize = preferences.fontSizeSp.sp,
+                lineHeight = preferences.lineHeightSp.sp,
+                fontFamily = when (preferences.fontFamily) {
+                    "serif" -> FontFamily.Serif
+                    "sans" -> FontFamily.SansSerif
+                    "mono" -> FontFamily.Monospace
+                    else -> FontFamily.Default
+                },
+                color = if (preferences.nightMode) androidx.compose.ui.graphics.Color(0xFFE9E1D5) else MaterialTheme.colorScheme.onBackground,
+            )
         }
     }
 }
@@ -438,14 +748,22 @@ private fun DocumentLoading() {
 }
 
 @Composable
-private fun DocumentError(message: String) {
-    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+private fun DocumentError(message: String, onRetry: (() -> Unit)? = null) {
+    Column(
+        Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
         Text(
             message,
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.error,
             textAlign = TextAlign.Center,
         )
+        if (onRetry != null) {
+            Spacer(Modifier.height(12.dp))
+            TextButton(onClick = onRetry) { Text("重试") }
+        }
     }
 }
 

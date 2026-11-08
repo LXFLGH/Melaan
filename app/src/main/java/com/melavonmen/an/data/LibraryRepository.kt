@@ -39,7 +39,7 @@ object LibraryRepository {
 
     const val PREF_KEY_TREE_URIS = "tree_uris"
     const val PREF_KEY_CHAPTER_PARSER_VERSION = "chapter_parser_version"
-    const val CHAPTER_PARSER_VERSION = 4
+    const val CHAPTER_PARSER_VERSION = 5
 
     private const val MAX_OPEN_READERS = 4
 
@@ -66,6 +66,8 @@ object LibraryRepository {
         val store = LibraryIndexStore(context)
         val tagStore = ComicUserTagStore(context)
         BookmarkStore.init(context)
+        UserBookMetadataStore.init(context)
+        LostBookStore.init(context)
         val restored = runCatching { store.load() }.getOrDefault(emptyList())
         synchronized(lock) {
             indexStore = store
@@ -85,6 +87,9 @@ object LibraryRepository {
         val ctx = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
         val previousEntries = entries
+        val previousByUri = previousEntries.associateBy(ComicEntry::uri)
+        val stamps = ctx.getSharedPreferences("melaan_scan_stamps", Context.MODE_PRIVATE)
+        val updatedStamps = LinkedHashMap<String, String>()
         val uniqueUris = LinkedHashMap<String, Uri>()
         val warnings = ArrayList<ScanWarning>()
         val failedTrees = ArrayList<Uri>()
@@ -111,11 +116,23 @@ object LibraryRepository {
         for (uri in uris) {
             val name = displayName(uri)
             try {
+                val size = fileLength(ctx, uri)
+                val modified = fileModified(ctx, uri)
+                val signature = if (size > 0 && modified > 0) "$size:$modified" else null
+                val previous = previousByUri[uri.toString()]
+                if (previous != null && previous.sizeBytes == size && signature != null &&
+                    signature == stamps.getString(uri.toString(), null)
+                ) {
+                    built.add(previous)
+                    updatedStamps[uri.toString()] = signature
+                    continue
+                }
                 val result = buildEntry(uri, name)
                 if (result.entry == null) {
                     warnings += result.warning ?: ScanWarning(name, skippedReason = "没有可读取的书页或章节")
                 } else {
                     built.add(result.entry)
+                    if (signature != null) updatedStamps[uri.toString()] = signature
                     result.warning?.let(warnings::add)
                 }
             } catch (e: CancellationException) {
@@ -135,6 +152,8 @@ object LibraryRepository {
             }
             if (belongsToFailedTree && builtIds.add(entry.id)) built += entry
         }
+        previousEntries.filter { it.id !in builtIds }.forEach(LostBookStore::remember)
+        built.forEach { LostBookStore.forget(it.id) }
         synchronized(lock) {
             indexStore?.replace(built)
             for (r in readers.values) closeQuietly(r)
@@ -144,6 +163,9 @@ object LibraryRepository {
             for (e in built) idIndex[e.id] = e
             entries = built
         }
+        stamps.edit().clear().also { editor ->
+            updatedStamps.forEach { (key, value) -> editor.putString(key, value) }
+        }.apply()
         if (preserveCoverCache) {
             val refreshed = built.associateBy { it.id }
             previousEntries.forEach { old ->
@@ -180,12 +202,51 @@ object LibraryRepository {
         }
         if (removed) {
             userTags?.remove(id)
+            UserBookMetadataStore.remove(id)
             ProgressStore.remove(id)
             BookmarkStore.removeComic(id)
             appContext?.let { LibraryCollectionsStore(it).removeComic(id) }
             coverFile(id)?.delete()
         }
         return removed
+    }
+
+    /** Explicitly rebind reading data when an old SAF URI was replaced by a moved file. */
+    fun relinkLostBook(oldId: String, newId: String): Boolean {
+        if (ExhibitionData.enabled || oldId == newId) return false
+        val target = byId(newId) ?: return false
+        val lost = LostBookStore.list().firstOrNull { it.id == oldId } ?: return false
+        if (lost.format != target.format) return false
+        val context = appContext ?: return false
+        val collections = LibraryCollectionsStore(context)
+        val originalProgress = ProgressStore.load(oldId)
+        if (originalProgress != null && ProgressStore.load(newId) == null) {
+            val moved = originalProgress.copy(comicId = newId)
+            ProgressStore.save(moved)
+            collections.recordProgress(moved)
+        }
+        val existingBookmarkIds = BookmarkStore.forComic(newId).map(ReaderBookmark::id).toSet()
+        BookmarkStore.forComic(oldId).forEach { bookmark ->
+            BookmarkStore.add(bookmark.copy(
+                id = if (bookmark.id in existingBookmarkIds) java.util.UUID.randomUUID().toString() else bookmark.id,
+                comicId = newId,
+            ))
+        }
+        BookmarkStore.removeComic(oldId)
+        if (oldId in collections.favorites()) collections.setFavorite(newId, true)
+        collections.bookLists().filter { oldId in it.comicIds }.forEach { list ->
+            collections.setBookListMembership(list.name, newId, true)
+        }
+        val oldMeta = UserBookMetadataStore.load(oldId)
+        if (UserBookMetadataStore.load(newId) == UserBookMetadata()) UserBookMetadataStore.save(newId, oldMeta)
+        UserBookMetadataStore.remove(oldId)
+        userTags?.get(oldId).orEmpty().forEach { tag -> userTags?.add(newId, tag) }
+        userTags?.remove(oldId)
+        collections.removeComic(oldId)
+        ProgressStore.remove(oldId)
+        LostBookStore.forget(oldId)
+        LibrarySnapshot.invalidate()
+        return true
     }
 
     fun addUserTag(id: String, tag: String): List<String> {
@@ -235,10 +296,11 @@ object LibraryRepository {
     suspend fun readAuthors(id: String): List<String> {
         if (ExhibitionData.enabled) return ExhibitionData.comic(id)?.authors.orEmpty()
         val entry = byId(id) ?: return emptyList()
-        return if (isEpubFormat(entry.format)) {
-            withReader(id) { EpubParser.parse(it)?.authors.orEmpty() }
-        } else {
-            withReader(id) { it.parseMetadata()?.authors.orEmpty() }
+        return when {
+            entry.authors.isNotEmpty() -> entry.authors
+            isEpubFormat(entry.format) -> withReader(id) { EpubParser.parse(it)?.authors.orEmpty() }
+            isPdfFormat(entry.format) || isTxtFormat(entry.format) -> emptyList()
+            else -> withReader(id) { it.parseMetadata()?.authors.orEmpty() }
         }
     }
 
@@ -276,12 +338,17 @@ object LibraryRepository {
     suspend fun readTextChapter(id: String, chapterIndex: Int): String {
         val entry = byId(id) ?: throw EntryNotFound(id)
         require(isTxtFormat(entry.format)) { "not a TXT book: $id" }
-        val bytes = withContext(Dispatchers.IO) { readDocumentBytes(Uri.parse(entry.uri)) }
-        val text = TextDocument.decode(bytes)
-        val chapters = TextDocument.splitChapters(text)
-        return chapters.getOrNull(chapterIndex)?.content
-            ?: chapters.firstOrNull()?.content
-            ?: ""
+        val chapter = entry.chapters.getOrNull(chapterIndex)
+            ?: throw IndexOutOfBoundsException("TXT chapter $chapterIndex is missing")
+        val span = chapter.pageEntryPaths.firstOrNull()?.let(TextDocumentIndex::parse)
+        return withContext(Dispatchers.IO) {
+            val context = appContext ?: error("LibraryRepository not initialized")
+            context.contentResolver.openInputStream(Uri.parse(entry.uri))?.use { stream ->
+                if (span != null) TextDocumentIndex.read(stream, span)
+                else TextDocument.splitChapters(TextDocument.decode(stream.readBytes()))
+                    .getOrNull(chapterIndex)?.content.orEmpty()
+            } ?: throw IOException("cannot open TXT: ${entry.title}")
+        }
     }
 
     fun cacheSizeBytes(): Long = runCatching {
@@ -479,10 +546,9 @@ object LibraryRepository {
     private fun buildTextEntry(uri: Uri, displayName: String): BuildResult {
         val context = appContext
             ?: throw IllegalStateException("LibraryRepository.init(context) must be called before scan")
-        val bytes = readDocumentBytes(uri)
-        val text = TextDocument.decode(bytes)
-        val chapters = TextDocument.splitChapters(text)
-        if (text.isBlank()) {
+        val chapters = context.contentResolver.openInputStream(uri)?.use(TextDocumentIndex::index)
+            ?: throw IOException("cannot open TXT: $displayName")
+        if (chapters.isEmpty()) {
             return BuildResult(null, ScanWarning(displayName, skippedReason = "TXT 文件为空"))
         }
         return BuildResult(
@@ -495,7 +561,7 @@ object LibraryRepository {
                 format = "txt",
                 isSerial = chapters.size > 1,
                 chapters = chapters.map { chapter ->
-                    ChapterRef(chapter.title, listOf("txt"), null)
+                    ChapterRef(chapter.title, listOf(chapter.path()), null)
                 },
                 coverEntryName = null,
                 sizeBytes = fileLength(context, uri)
@@ -503,6 +569,16 @@ object LibraryRepository {
             null
         )
     }
+
+    private fun fileModified(context: Context, uri: Uri): Long = runCatching {
+        context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+            null, null, null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else 0L
+        } ?: 0L
+    }.getOrDefault(0L)
 
     private fun fileLength(context: Context, uri: Uri): Long = runCatching {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -531,7 +607,7 @@ object LibraryRepository {
     private fun withUserTags(entry: ComicEntry): ComicEntry {
         val localTags = userTags?.get(entry.id).orEmpty()
         val combined = mergeTags(entry.tags, localTags)
-        return if (combined == entry.tags) entry else entry.copy(tags = combined)
+        return UserBookMetadataStore.apply(if (combined == entry.tags) entry else entry.copy(tags = combined))
     }
 
     private fun mergeTags(base: List<String>, additions: List<String>): List<String> {

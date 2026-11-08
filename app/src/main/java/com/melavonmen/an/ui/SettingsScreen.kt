@@ -66,7 +66,10 @@ import com.melavonmen.an.data.ComicEntry
 import com.melavonmen.an.data.LibraryRepository
 import com.melavonmen.an.data.LibrarySnapshot
 import com.melavonmen.an.data.ReadingProgress
+import com.melavonmen.an.data.isPdfFormat
+import com.melavonmen.an.data.isDocumentFormat
 import com.melavonmen.an.data.ReaderSettingsStore
+import com.melavonmen.an.data.DocumentReaderPreferencesStore
 import com.melavonmen.an.data.LocalBackup
 import com.melavonmen.an.R
 import kotlinx.coroutines.Dispatchers
@@ -131,6 +134,12 @@ private fun computeReadPages(
     for (e in entries) {
         val p = progressById[e.id] ?: continue
         if (e.chapters.isEmpty()) continue
+        // EPUB/TXT pageIndex is a scroll fraction, not a page number.
+        if (isDocumentFormat(e.format) && !isPdfFormat(e.format)) continue
+        if (isPdfFormat(e.format)) {
+            total += (p.pageIndex + 1).coerceIn(0, e.chapters.first().pageEntryPaths.size)
+            continue
+        }
         val ci = p.chapterIndex.coerceIn(0, e.chapters.size - 1)
         var n = p.pageIndex.coerceAtLeast(0) + 1
         for (c in 0 until ci) n += e.chapters[c].pageEntryPaths.size
@@ -165,6 +174,7 @@ fun SettingsScreen(
     var fitWidth by remember { mutableStateOf(false) }
     var doublePage by remember { mutableStateOf(false) }
     var autoNext by remember { mutableStateOf(false) }
+    var docSeamless by remember { mutableStateOf(DocumentReaderPreferencesStore.load(context).seamless) }
     var backupMessage by remember { mutableStateOf<String?>(null) }
     var infoDialog by remember { mutableStateOf<String?>(null) }
     var scanReport by remember { mutableStateOf<com.melavonmen.an.data.ScanReport?>(null) }
@@ -184,6 +194,7 @@ fun SettingsScreen(
         fitWidth = sp.getBoolean(KEY_READER_FIT_WIDTH, false)
         doublePage = sp.getBoolean(KEY_READER_DOUBLE_PAGE, false)
         autoNext = ReaderSettingsStore.loadAutoNext(sp)
+        docSeamless = DocumentReaderPreferencesStore.load(context).seamless
         withContext(Dispatchers.IO) {
             val data = LibrarySnapshot.load()
             indexedCount = data.comics.size
@@ -327,6 +338,14 @@ fun SettingsScreen(
                 } else if (kind == "reader") {
                     Column {
                         Text("阅读方式")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            MiniSwitch(docSeamless) { enabled ->
+                                docSeamless = enabled
+                                val current = DocumentReaderPreferencesStore.load(context)
+                                DocumentReaderPreferencesStore.save(context, current.copy(seamless = enabled))
+                            }
+                            Text("EPUB/TXT 无缝连续滚动", modifier = Modifier.padding(start = 8.dp))
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             MiniSwitch(autoNext) {
                                 autoNext = it

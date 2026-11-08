@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "id": "local-documents",
-  "status": "implemented",
+  "status": "implementation-in-review",
   "title": "本地 EPUB/PDF/TXT 书籍支持",
   "requirements": [
     "R49",
@@ -21,13 +21,20 @@
     "EPUB 解析标题、作者、标签、spine 章节、封面路径；章节 HTML 与资源按需读取",
     "PDF 读取页数并按页渲染；TXT 解析为章节文本；两者进度、收藏与书架记录可保存",
     "书架提供格式筛选；详情与阅读器按格式路由",
-    "用户可见文案从漫画专用改为 Melaan 阅读/书库/书籍通用描述"
+    "用户可见文案从漫画专用改为 Melaan 阅读/书库/书籍通用描述",
+    "EPUB/TXT 无缝阅读默认开启，提前加载附近章节并回收远离视口的章节；手动章节模式仍可切换",
+    "TXT 章节扫描以字符偏移索引持久化，不再每次切章完整解码本书",
+    "EPUB/TXT 可全文搜索、增删命名书签，并调整阅读字号、行距、边距及背景",
+    "PDF 支持缩放、缩略图；Android 15+ 可搜索含文字层 PDF",
+    "EPUB 阅读器在章节 iframe 内上下滑动时，由外层 WebView 连续滚动，不出现子页面吞掉滑动或无限拉长章节容器",
+    "EPUB/TXT/PDF 阅读正文轻点可隐藏/再显示顶部与底部工具栏，工具栏使用浮层，不通过改变正文可视高度干扰当前滚动位置"
   ],
   "invariants": [
     "原文件只读；EPUB 资源只在 WebView 请求时从归档读取，不解压到用户可见目录",
     "文档页/文本不落盘；封面仍只写入应用私有 parsed-covers",
     "阅读进度与收藏使用稳定 URI 作为书籍 ID",
-    "WebView 只允许当前 EPUB 的 https://melaan.epub/ 资源；不注入网络来源"
+    "WebView 只允许当前 EPUB 的 https://melaan.epub/ 资源；不注入网络来源",
+    "EPUB 无缝模式的 XHTML 在禁用脚本的 sandbox iframe 内，App 自有父容器脚本受 CSP 限制"
   ],
   "errors": [
     "损坏 EPUB/PDF/TXT 给出可读错误或扫描警告",
@@ -39,7 +46,11 @@
     "EpubParser 单测解析 container/OPF/manifest/spine/cover/title/author/tag",
     "TextDocument 单测按中文章节标题切分；无标题时返回正文单章",
     ":app:testDebugUnitTest 与 :app:assembleDebug 均为 0 failed/BUILD SUCCESSFUL",
-    "实机打开本地 EPUB/PDF/TXT，可翻章/翻页、保存进度并从书架恢复"
+    "实机打开本地 EPUB/PDF/TXT，可翻章/翻页、保存进度并从书架恢复",
+    "连续滚动从第一章进入第二章无须手动点击且远离章节内存被释放；多次跳章进度可恢复",
+    "TXT 超大无分章内容自动切为有界片段，验证 UTF8/GB18030 与 CRLF 字符偏移正确",
+    "实机 EPUB 在正文、图片和章节接缝处连续上下滑动，能滚至后续章节；拖动不触发工具栏显隐",
+    "实机 EPUB 单章/无缝模式、TXT、PDF：轻点正文隐藏/显示上下工具栏，阅读位置不因显隐跳变，阅读器不重新载入"
   ],
   "version": "1.0"
 }
